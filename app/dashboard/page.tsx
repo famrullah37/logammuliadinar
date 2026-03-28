@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase";
 import type { User } from "@/lib/types";
 import ProductForm from "@/components/ProductForm";
 import ProductList from "@/components/ProductList";
+import Link from "next/link";
+import Image from "next/image";
 
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
@@ -73,9 +75,14 @@ export default function Dashboard() {
       <header className="bg-white border-b-4 border-[#908974] shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-[#ce9233] rounded-full flex items-center justify-center">
-              <span className="text-white font-bold">₯</span>
-            </div>
+            <Link href="/dashboard" className="flex items-center space-x-2">
+              <Image
+                src="/logolmd.png"
+                alt="Logam Mulia Dinar"
+                width={100}
+                height={45}
+              />
+            </Link>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
                 Dashboard Admin
