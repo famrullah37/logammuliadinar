@@ -44,11 +44,16 @@ export default function Dashboard() {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        router.push("/login");
-      }
-    });
+    } = supabase.auth.onAuthStateChange(
+      (
+        _event: unknown,
+        session: { user?: { id: string; email?: string } } | null,
+      ) => {
+        if (!session) {
+          router.push("/login");
+        }
+      },
+    );
 
     return () => subscription?.unsubscribe();
   }, [router]);
