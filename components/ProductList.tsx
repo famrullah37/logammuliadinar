@@ -66,7 +66,7 @@ export default function ProductList({ onTabChange }: ProductListProps) {
       <div>
         <button
           onClick={() => setEditingId(null)}
-          className="mb-6 text-[#1c424f] hover:text-[#15323c] font-semibold flex items-center gap-2"
+          className="mb-6 text-[#1c424f] hover:text-[#15323c] font-semibold inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[#908974]/30 hover:bg-[#f7f4ed] transition"
         >
           ← Kembali ke Daftar
         </button>
@@ -83,7 +83,7 @@ export default function ProductList({ onTabChange }: ProductListProps) {
 
   if (loading) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 bg-[#f7f4ed] rounded-xl border border-[#908974]/20">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#ce9233] mb-4"></div>
         <p className="text-gray-600">Memuat produk...</p>
       </div>
@@ -92,7 +92,7 @@ export default function ProductList({ onTabChange }: ProductListProps) {
 
   if (error) {
     return (
-      <div className="p-6 bg-red-50 border-2 border-red-200 rounded-lg">
+      <div className="p-6 bg-red-50 border border-red-200 rounded-xl">
         <p className="text-red-800">Error: {error}</p>
         <button
           onClick={fetchProducts}
@@ -106,37 +106,42 @@ export default function ProductList({ onTabChange }: ProductListProps) {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">
-        Daftar Produk ({products.length})
+      <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-6">
+        Daftar
+        <span className="text-[#1c424f]"> Produk</span>
+        <span className="text-gray-600 text-lg sm:text-xl">
+          {" "}
+          ({products.length})
+        </span>
       </h2>
 
       {products.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-gray-200">
+        <div className="text-center py-12 bg-[#f7f4ed] rounded-xl border border-[#908974]/30">
           <p className="text-gray-600 mb-4">
             Belum ada produk yang ditambahkan
           </p>
           <button
             onClick={onTabChange}
-            className="bg-[#ce9233] text-white px-6 py-2 rounded-lg font-semibold hover:bg-[#b87f2d] hover:shadow-lg transition"
+            className="bg-[#ce9233] text-white px-6 py-2.5 rounded-xl font-semibold hover:bg-[#b87f2d] hover:shadow-md transition"
           >
             Tambah Produk Pertama
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-xl border border-[#908974]/25">
           <table className="w-full">
             <thead>
-              <tr className="bg-[#f1e5cf] border-b-2 border-[#908974]/50">
-                <th className="px-6 py-4 text-left font-bold text-gray-800">
+              <tr className="bg-[#f7f4ed] border-b border-[#908974]/40">
+                <th className="px-6 py-4 text-left font-bold text-gray-800 text-sm sm:text-base">
                   Jenis Dinar
                 </th>
-                <th className="px-6 py-4 text-left font-bold text-gray-800">
+                <th className="px-6 py-4 text-left font-bold text-gray-800 text-sm sm:text-base">
                   Harga Konsumen
                 </th>
-                <th className="px-6 py-4 text-left font-bold text-gray-800">
+                <th className="px-6 py-4 text-left font-bold text-gray-800 text-sm sm:text-base">
                   Harga Buyback
                 </th>
-                <th className="px-6 py-4 text-center font-bold text-gray-800">
+                <th className="px-6 py-4 text-center font-bold text-gray-800 text-sm sm:text-base">
                   Aksi
                 </th>
               </tr>
@@ -145,18 +150,18 @@ export default function ProductList({ onTabChange }: ProductListProps) {
               {products.map((product, index) => (
                 <tr
                   key={product.id}
-                  className={`border-b border-[#908974]/20 ${index % 2 === 0 ? "bg-white" : "bg-[#fbf8f2]"} hover:bg-[#eef3f5] transition`}
+                  className={`border-b border-[#908974]/20 ${index % 2 === 0 ? "bg-white" : "bg-[#fcfaf6]"} hover:bg-[#eef3f5] transition`}
                 >
                   <td className="px-6 py-4 font-semibold text-gray-800">
                     {product.name}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="bg-[#f1e5cf] text-[#704f19] px-3 py-1 rounded-full text-sm font-semibold">
+                    <span className="bg-[#f1e5cf] text-[#704f19] px-3 py-1.5 rounded-full text-sm font-semibold">
                       Rp{product.harga_konsumen.toLocaleString("id-ID")}
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="bg-[#e6eff2] text-[#1c424f] px-3 py-1 rounded-full text-sm font-semibold">
+                    <span className="bg-[#e6eff2] text-[#1c424f] px-3 py-1.5 rounded-full text-sm font-semibold">
                       Rp{product.harga_buyback.toLocaleString("id-ID")}
                     </span>
                   </td>

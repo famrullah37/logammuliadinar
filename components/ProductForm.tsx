@@ -79,9 +79,13 @@ export default function ProductForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">
-        {initialData ? "Edit Produk" : "Tambah Produk Baru"}
+      <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+        {initialData ? "Edit" : "Tambah"}
+        <span className="text-[#1c424f]"> Produk</span>
       </h2>
+      <p className="text-gray-600 mb-6">
+        Isi data produk untuk ditampilkan pada halaman utama.
+      </p>
 
       {/* Jenis Dinar */}
       <div>
@@ -93,7 +97,7 @@ export default function ProductForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Contoh: Dinar Murni 1 Gram"
-          className="w-full px-4 py-3 border-2 border-[#908974]/40 rounded-lg focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/20 transition"
+          className="w-full px-4 py-3 bg-white border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/15 transition"
         />
       </div>
 
@@ -107,7 +111,7 @@ export default function ProductForm({
           value={hargaKonsumen}
           onChange={(e) => setHargaKonsumen(e.target.value)}
           placeholder="Contoh: 850000"
-          className="w-full px-4 py-3 border-2 border-[#908974]/40 rounded-lg focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/20 transition"
+          className="w-full px-4 py-3 bg-white border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/15 transition"
         />
       </div>
 
@@ -121,7 +125,7 @@ export default function ProductForm({
           value={hargaBuyback}
           onChange={(e) => setHargaBuyback(e.target.value)}
           placeholder="Contoh: 820000"
-          className="w-full px-4 py-3 border-2 border-[#908974]/40 rounded-lg focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/20 transition"
+          className="w-full px-4 py-3 bg-white border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/15 transition"
         />
       </div>
 
@@ -130,7 +134,7 @@ export default function ProductForm({
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 bg-[#1c424f] hover:bg-[#15323c] disabled:bg-gray-400 text-white font-bold py-3 rounded-lg transition shadow-lg hover:shadow-xl disabled:shadow-none"
+          className="flex-1 bg-[#ce9233] hover:bg-[#b87f2d] disabled:bg-gray-400 text-white font-bold py-3 rounded-xl transition shadow-sm hover:shadow-md disabled:shadow-none"
         >
           {loading ? (
             <span className="flex items-center justify-center">

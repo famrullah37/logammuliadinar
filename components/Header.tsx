@@ -4,7 +4,7 @@ import Image from "next/image";
 
 export default function Header() {
   return (
-    <header className="relative min-h-[92vh] border-b border-[#908974]/30">
+    <header className="relative min-h-screen border-b border-[#908974]/30">
       <Image
         src="/slide_01.jpg"
         alt="Koin dinar emas"
