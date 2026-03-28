@@ -1,38 +1,35 @@
 "use client";
 
+import Image from "next/image";
+
 export default function Header() {
   return (
-    <header className="bg-gradient-to-r from-yellow-50 via-white to-green-50 py-16 sm:py-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid md:grid-cols-2 gap-8 items-center">
-          {/* Left Content */}
-          <div className="space-y-6">
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+    <header className="relative min-h-[92vh] border-b border-[#908974]/30">
+      <Image
+        src="/slide_01.jpg"
+        alt="Koin dinar emas"
+        fill
+        priority
+        className="object-cover"
+      />
+      <div className="absolute inset-0 bg-[#1c424f]/55" />
+
+      <div className="relative z-10 min-h-[92vh] flex items-center pt-16 sm:pt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <div className="max-w-3xl space-y-6">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white leading-tight">
               Investasi Emas Syariah yang
-              <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 bg-clip-text text-transparent">
-                {" "}
-                Terpercaya
-              </span>
+              <span className="text-[#ce9233]"> Terpercaya</span>
             </h1>
-            <p className="text-lg text-gray-600 leading-relaxed">
+            <p className="text-lg text-[#f4f1ea] leading-relaxed">
               Logam Mulia Dinar menyediakan emas murni berkualitas tinggi dengan
               sistem syariah yang transparan. Investasi cerdas untuk masa depan
               yang lebih aman.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <button className="bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-white px-8 py-4 rounded-lg font-bold text-lg transition shadow-lg hover:shadow-xl">
+              <button className="bg-[#ce9233] hover:bg-[#b87f2d] text-white px-8 py-4 rounded-lg font-bold text-lg transition shadow-lg hover:shadow-xl">
                 Mulai Investasi Sekarang
               </button>
-              <button className="border-2 border-green-500 text-green-600 hover:bg-green-50 px-8 py-4 rounded-lg font-bold text-lg transition">
-                Hubungi Kami
-              </button>
-            </div>
-          </div>
-
-          {/* Right Image */}
-          <div className="flex justify-center">
-            <div className="w-64 h-64 bg-gradient-to-br from-yellow-300 via-yellow-200 to-green-200 rounded-full flex items-center justify-center shadow-2xl">
-              <div className="text-6xl">💰</div>
             </div>
           </div>
         </div>

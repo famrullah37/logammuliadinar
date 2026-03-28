@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import type { User, Product } from "@/lib/types";
+import type { User } from "@/lib/types";
 import ProductForm from "@/components/ProductForm";
 import ProductList from "@/components/ProductList";
 
@@ -58,9 +58,9 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-yellow-50 to-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#f4f1ea] flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mb-4"></div>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#ce9233] mb-4"></div>
           <p className="text-gray-600 text-lg">Memuat dashboard...</p>
         </div>
       </div>
@@ -68,12 +68,12 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-green-50">
+    <div className="min-h-screen bg-[#f4f1ea]">
       {/* Header */}
-      <header className="bg-white border-b-4 border-yellow-300 shadow-md sticky top-0 z-50">
+      <header className="bg-white border-b-4 border-[#908974] shadow-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-[#ce9233] rounded-full flex items-center justify-center">
               <span className="text-white font-bold">₯</span>
             </div>
             <div>
@@ -100,8 +100,8 @@ export default function Dashboard() {
             onClick={() => setActiveTab("list")}
             className={`px-6 py-3 rounded-lg font-semibold transition ${
               activeTab === "list"
-                ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-white shadow-lg"
-                : "bg-white text-gray-700 border-2 border-yellow-200 hover:border-yellow-400"
+                ? "bg-[#1c424f] text-white shadow-lg"
+                : "bg-white text-gray-700 border-2 border-[#908974]/40 hover:border-[#1c424f]"
             }`}
           >
             Daftar Produk
@@ -110,8 +110,8 @@ export default function Dashboard() {
             onClick={() => setActiveTab("add")}
             className={`px-6 py-3 rounded-lg font-semibold transition ${
               activeTab === "add"
-                ? "bg-gradient-to-r from-yellow-400 to-yellow-500 text-white shadow-lg"
-                : "bg-white text-gray-700 border-2 border-yellow-200 hover:border-yellow-400"
+                ? "bg-[#1c424f] text-white shadow-lg"
+                : "bg-white text-gray-700 border-2 border-[#908974]/40 hover:border-[#1c424f]"
             }`}
           >
             Tambah Produk Baru
@@ -119,7 +119,7 @@ export default function Dashboard() {
         </div>
 
         {/* Content */}
-        <div className="bg-white rounded-xl shadow-xl border-2 border-yellow-200 p-8">
+        <div className="bg-white rounded-xl shadow-xl border-2 border-[#908974]/40 p-8">
           {activeTab === "list" ? (
             <ProductList onTabChange={() => setActiveTab("add")} />
           ) : (

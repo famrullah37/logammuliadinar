@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Product } from "@/lib/types";
+import toast from "react-hot-toast";
 
 interface ProductFormProps {
   onSuccess?: () => void;
@@ -21,13 +22,9 @@ export default function ProductForm({
     initialData?.harga_buyback.toString() || "",
   );
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(false);
     setLoading(true);
 
     try {
@@ -50,7 +47,7 @@ export default function ProductForm({
           .eq("id", initialData.id);
 
         if (updateError) throw updateError;
-        setSuccess(true);
+        toast.success("Produk berhasil diperbarui");
       } else {
         // Insert
         const { error: insertError } = await supabase
@@ -64,7 +61,7 @@ export default function ProductForm({
           ]);
 
         if (insertError) throw insertError;
-        setSuccess(true);
+        toast.success("Produk berhasil ditambahkan");
         setName("");
         setHargaKonsumen("");
         setHargaBuyback("");
@@ -74,7 +71,7 @@ export default function ProductForm({
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Terjadi kesalahan";
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -86,21 +83,6 @@ export default function ProductForm({
         {initialData ? "Edit Produk" : "Tambah Produk Baru"}
       </h2>
 
-      {error && (
-        <div className="p-4 bg-red-100 border-2 border-red-300 rounded-lg text-red-800">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="p-4 bg-green-100 border-2 border-green-300 rounded-lg text-green-800">
-          ✓{" "}
-          {initialData
-            ? "Produk berhasil diperbarui"
-            : "Produk berhasil ditambahkan"}
-        </div>
-      )}
-
       {/* Jenis Dinar */}
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -111,7 +93,7 @@ export default function ProductForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Contoh: Dinar Murni 1 Gram"
-          className="w-full px-4 py-3 border-2 border-yellow-200 rounded-lg focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition"
+          className="w-full px-4 py-3 border-2 border-[#908974]/40 rounded-lg focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/20 transition"
         />
       </div>
 
@@ -125,7 +107,7 @@ export default function ProductForm({
           value={hargaKonsumen}
           onChange={(e) => setHargaKonsumen(e.target.value)}
           placeholder="Contoh: 850000"
-          className="w-full px-4 py-3 border-2 border-yellow-200 rounded-lg focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition"
+          className="w-full px-4 py-3 border-2 border-[#908974]/40 rounded-lg focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/20 transition"
         />
       </div>
 
@@ -139,7 +121,7 @@ export default function ProductForm({
           value={hargaBuyback}
           onChange={(e) => setHargaBuyback(e.target.value)}
           placeholder="Contoh: 820000"
-          className="w-full px-4 py-3 border-2 border-yellow-200 rounded-lg focus:outline-none focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 transition"
+          className="w-full px-4 py-3 border-2 border-[#908974]/40 rounded-lg focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/20 transition"
         />
       </div>
 
@@ -148,7 +130,7 @@ export default function ProductForm({
         <button
           type="submit"
           disabled={loading}
-          className="flex-1 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold py-3 rounded-lg transition shadow-lg hover:shadow-xl disabled:shadow-none"
+          className="flex-1 bg-[#1c424f] hover:bg-[#15323c] disabled:bg-gray-400 text-white font-bold py-3 rounded-lg transition shadow-lg hover:shadow-xl disabled:shadow-none"
         >
           {loading ? (
             <span className="flex items-center justify-center">

@@ -10,17 +10,14 @@ export default function Home() {
       <Navbar />
       <Header />
 
-      <main className="flex-grow">
+      <main className="grow">
         {/* Produk Section */}
         <section id="produk" className="py-16 sm:py-24 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
                 Daftar
-                <span className="bg-gradient-to-r from-yellow-400 to-green-500 bg-clip-text text-transparent">
-                  {" "}
-                  Produk Kami
-                </span>
+                <span className="text-[#1c424f]"> Produk Kami</span>
               </h2>
               <p className="text-lg text-gray-600">
                 Pilih dinar yang sesuai dengan kebutuhan investasi Anda

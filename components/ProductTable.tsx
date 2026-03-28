@@ -48,7 +48,7 @@ export default function ProductTable() {
     <div className="overflow-x-auto bg-white rounded-lg shadow-lg border border-gray-200">
       {loading ? (
         <div className="p-8 text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#ce9233]"></div>
           <p className="text-gray-600 mt-4">Memuat data produk...</p>
         </div>
       ) : products.length === 0 ? (
@@ -58,7 +58,7 @@ export default function ProductTable() {
       ) : (
         <table className="w-full">
           <thead>
-            <tr className="bg-gradient-to-r from-yellow-100 to-green-50 border-b-2 border-yellow-300">
+            <tr className="bg-[#f1e5cf] border-b-2 border-[#908974]/50">
               <th className="px-6 py-4 text-left font-bold text-gray-800">
                 Jenis Dinar
               </th>
@@ -69,7 +69,7 @@ export default function ProductTable() {
                 Harga Buyback
               </th>
               <th className="px-6 py-4 text-center font-bold text-gray-800">
-                Aksi
+                Beli
               </th>
             </tr>
           </thead>
@@ -77,34 +77,35 @@ export default function ProductTable() {
             {products.map((product, index) => (
               <tr
                 key={product.id}
-                className={`border-b ${index % 2 === 0 ? "bg-white" : "bg-yellow-50"} hover:bg-green-50 transition`}
+                className={`border-b border-[#908974]/20 ${index % 2 === 0 ? "bg-white" : "bg-[#fbf8f2]"} hover:bg-[#eef3f5] transition`}
               >
                 <td className="px-6 py-4 font-semibold text-gray-800">
                   {product.name}
                 </td>
                 <td className="px-6 py-4">
-                  <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-semibold">
+                  <span className="bg-[#f1e5cf] text-[#704f19] px-3 py-1 rounded-full text-sm font-semibold">
                     Rp{product.harga_konsumen.toLocaleString("id-ID")}
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+                  <span className="bg-[#e6eff2] text-[#1c424f] px-3 py-1 rounded-full text-sm font-semibold">
                     Rp{product.harga_buyback.toLocaleString("id-ID")}
                   </span>
                 </td>
                 <td className="px-6 py-4 text-center">
                   <a
-                    href="https://wa.me"
+                    href="https://wa.me/6281233272733"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-md hover:shadow-lg"
+                    className="inline-flex items-center gap-2 bg-[#1c424f] hover:bg-[#15323c] text-white px-4 py-2 rounded-lg font-semibold transition shadow-md hover:shadow-lg"
                   >
                     <svg
                       className="w-5 h-5"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 50 50"
                       fill="currentColor"
-                      viewBox="0 0 24 24"
                     >
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.272-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.67-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.076 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421-7.403h-.004a9.87 9.87 0 00-5.031 1.378c-3.055 2.036-5.044 5.46-5.044 9.075 0 1.71.33 3.361.997 4.919l-1.06 3.861 3.95-1.034c1.454.746 3.083 1.14 4.75 1.14h.004c5.305 0 9.668-4.356 9.668-9.674 0-2.589-.525-5.02-1.54-7.362-1.007-2.307-2.515-4.365-4.38-5.855-1.858-1.466-4.217-2.273-6.708-2.272Z" />
+                      <path d="M25,2C12.318,2,2,12.318,2,25c0,3.96,1.023,7.854,2.963,11.29L2.037,46.73c-0.096,0.343-0.003,0.711,0.245,0.966 C2.473,47.893,2.733,48,3,48c0.08,0,0.161-0.01,0.24-0.029l10.896-2.699C17.463,47.058,21.21,48,25,48c12.682,0,23-10.318,23-23 S37.682,2,25,2z M36.57,33.116c-0.492,1.362-2.852,2.605-3.986,2.772c-1.018,0.149-2.306,0.213-3.72-0.231 c-0.857-0.27-1.957-0.628-3.366-1.229c-5.923-2.526-9.791-8.415-10.087-8.804C15.116,25.235,13,22.463,13,19.594 s1.525-4.28,2.067-4.864c0.542-0.584,1.181-0.73,1.575-0.73s0.787,0.005,1.132,0.021c0.363,0.018,0.85-0.137,1.329,1.001 c0.492,1.168,1.673,4.037,1.819,4.33c0.148,0.292,0.246,0.633,0.05,1.022c-0.196,0.389-0.294,0.632-0.59,0.973 s-0.62,0.76-0.886,1.022c-0.296,0.291-0.603,0.606-0.259,1.19c0.344,0.584,1.529,2.493,3.285,4.039 c2.255,1.986,4.158,2.602,4.748,2.894c0.59,0.292,0.935,0.243,1.279-0.146c0.344-0.39,1.476-1.703,1.869-2.286 s0.787-0.487,1.329-0.292c0.542,0.194,3.445,1.604,4.035,1.896c0.59,0.292,0.984,0.438,1.132,0.681 C37.062,30.587,37.062,31.755,36.57,33.116z"></path>
                     </svg>
                     Chat via WhatsApp
                   </a>

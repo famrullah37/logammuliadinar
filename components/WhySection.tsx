@@ -41,18 +41,12 @@ export default function WhySection() {
   ];
 
   return (
-    <section
-      id="kenapa"
-      className="py-16 sm:py-24 bg-gradient-to-b from-white via-green-50 to-white"
-    >
+    <section id="kenapa" className="py-16 sm:py-24 bg-[#f7f4ed]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
             Kenapa Memilih
-            <span className="bg-gradient-to-r from-yellow-400 to-green-500 bg-clip-text text-transparent">
-              {" "}
-              Logam Mulia Dinar?
-            </span>
+            <span className="text-[#1c424f]"> Logam Mulia Dinar?</span>
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Kami berkomitmen memberikan layanan terbaik untuk investasi emas
@@ -64,7 +58,7 @@ export default function WhySection() {
           {reasons.map((reason, index) => (
             <div
               key={index}
-              className="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition border-2 border-transparent hover:border-yellow-300"
+              className="bg-white p-8 rounded-lg shadow-lg hover:shadow-xl transition border-2 border-transparent hover:border-[#908974]"
             >
               <div className="text-4xl mb-4">{reason.icon}</div>
               <h3 className="text-xl font-bold text-gray-900 mb-3">
