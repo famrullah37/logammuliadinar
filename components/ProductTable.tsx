@@ -2,120 +2,205 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import type { Product } from "@/lib/types";
+import type { LandingPriceItem, PriceTableRow } from "@/lib/types";
+
+const formatRupiah = (value: number | null | undefined) => {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+
+  return `Rp ${value.toLocaleString("id-ID")}`;
+};
+
+const transformPriceItems = (items: LandingPriceItem[]) => {
+  const rowsMap = new Map<string, PriceTableRow>();
+  const brandSet = new Set<string>();
+
+  for (const item of items) {
+    const productName = item.products?.name ?? "Produk";
+    const weight = Number(item.products?.weight ?? 0);
+    const rowKey = `${productName}-${weight}`;
+    const brandName = item.brands?.name ?? "Tanpa Brand";
+
+    if (!rowsMap.has(rowKey)) {
+      rowsMap.set(rowKey, {
+        productName,
+        weight,
+        byBrand: {},
+      });
+    }
+
+    brandSet.add(brandName);
+
+    const row = rowsMap.get(rowKey);
+    if (row) {
+      row.byBrand[brandName] = {
+        harga_beli: item.harga_beli,
+        harga_buyback: item.harga_buyback,
+      };
+    }
+  }
+
+  const rows = Array.from(rowsMap.values()).sort((a, b) => a.weight - b.weight);
+  const brands = Array.from(brandSet.values()).sort((a, b) =>
+    a.localeCompare(b, "id-ID"),
+  );
+
+  return { rows, brands };
+};
 
 export default function ProductTable() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [rows, setRows] = useState<PriceTableRow[]>([]);
+  const [brands, setBrands] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchPriceTable = async () => {
       try {
         setLoading(true);
-        const { data, error: fetchError } = await supabase
-          .from("dinar_products")
-          .select("*");
+        const { data, error: fetchError } = await supabase.from("prices")
+          .select(`
+            harga_beli,
+            harga_buyback,
+            brands(name),
+            products(name, weight)
+          `);
 
         if (fetchError) throw fetchError;
-        setProducts(data || []);
+
+        const normalizedData = ((data ?? []) as unknown[]).map((item) => {
+          const value = item as {
+            harga_beli: number;
+            harga_buyback: number;
+            brands: { name: string } | null;
+            products: { name: string; weight: number } | null;
+          };
+
+          return {
+            harga_beli: value.harga_beli,
+            harga_buyback: value.harga_buyback,
+            brands: value.brands,
+            products: value.products,
+          } satisfies LandingPriceItem;
+        });
+
+        const transformed = transformPriceItems(normalizedData);
+        setRows(transformed.rows);
+        setBrands(transformed.brands);
         setError(null);
       } catch (err) {
         const errorMessage =
-          err instanceof Error ? err.message : "Gagal memuat produk";
+          err instanceof Error ? err.message : "Gagal memuat harga";
         setError(errorMessage);
-        console.error("Error fetching products:", err);
+        console.error("Error fetching prices:", err);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProducts();
+    fetchPriceTable();
   }, []);
 
   if (error) {
     return (
-      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-6 text-center">
+      <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
         <p className="text-red-700 font-medium">{error}</p>
         <p className="text-red-600 text-sm mt-2">
-          Pastikan tabel dinar_products sudah dibuat di Supabase
+          Pastikan tabel brands, products, dan prices sudah tersedia di Supabase
         </p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl">
+    <div className="overflow-x-auto rounded-2xl border border-[#908974]/30 shadow-sm bg-white">
       {loading ? (
-        <div className="p-8 text-center">
+        <div className="p-8 text-center bg-[#f7f4ed]">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#ce9233]"></div>
-          <p className="text-gray-600 mt-4">Memuat data produk...</p>
+          <p className="text-gray-600 mt-4">Memuat data harga...</p>
         </div>
-      ) : products.length === 0 ? (
-        <div className="p-8 text-center">
-          <p className="text-gray-600">Belum ada produk yang tersedia</p>
+      ) : rows.length === 0 ? (
+        <div className="p-8 text-center bg-[#f7f4ed]">
+          <p className="text-gray-600">Belum ada data harga yang tersedia</p>
         </div>
       ) : (
-        <table className="w-full border-separate [border-spacing:8px]">
+        <table className="w-full min-w-[780px] border-collapse">
           <thead>
             <tr>
-              <th className="px-6 py-3 bg-black text-white rounded-lg text-left font-extrabold text-lg">
-                Jenis Dinar
+              <th
+                rowSpan={2}
+                className="px-4 py-4 bg-[#1c424f] text-white text-left font-bold text-sm sm:text-base border border-[#f7f4ed]"
+              >
+                Pecahan
               </th>
-              <th className="px-6 py-3 bg-black text-white rounded-lg text-center font-extrabold text-lg">
-                Konsumen
-              </th>
-              <th className="px-6 py-3 bg-black text-white rounded-lg text-center font-extrabold text-lg">
-                Buyback
-              </th>
-              <th className="px-6 py-3 bg-black text-white rounded-lg text-center font-extrabold text-lg">
-                Beli
-              </th>
+              {brands.map((brandName) => (
+                <th
+                  key={brandName}
+                  colSpan={2}
+                  className="px-4 py-3 bg-[#1c424f] text-white text-center font-bold text-sm sm:text-base border border-[#f7f4ed]"
+                >
+                  {brandName}
+                </th>
+              ))}
+            </tr>
+            <tr>
+              {brands.flatMap((brandName) => [
+                <th
+                  key={`${brandName}-beli`}
+                  className="px-4 py-3 bg-[#ce9233] text-white text-center font-semibold text-sm border border-[#f7f4ed]"
+                >
+                  Harga Beli
+                </th>,
+                <th
+                  key={`${brandName}-buyback`}
+                  className="px-4 py-3 bg-[#ce9233] text-white text-center font-semibold text-sm border border-[#f7f4ed]"
+                >
+                  Buyback
+                </th>,
+              ])}
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => (
-              <tr key={product.id}>
-                <td className="p-0 align-middle">
-                  <div className="bg-[#e5e5e7] rounded-lg px-4 py-3 min-w-65">
-                    <div className="leading-tight">
-                      <p className="text-[#1c424f] font-extrabold text-xl">
-                        {product.name}
-                      </p>
-                      <p className="text-[#4b5563] text-xs">
-                        Logam Mulia Dinar
-                      </p>
-                    </div>
+            {rows.map((row, index) => (
+              <tr key={`${row.productName}-${row.weight}`}>
+                <td
+                  className={`px-4 py-4 text-sm sm:text-base font-semibold text-gray-800 border border-[#f2ece0] ${
+                    index % 2 === 0 ? "bg-white" : "bg-[#fcfaf6]"
+                  }`}
+                >
+                  <div className="flex flex-col">
+                    <span>{row.productName}</span>
+                    <span className="text-xs text-gray-500">
+                      {row.weight.toLocaleString("id-ID")} gram
+                    </span>
                   </div>
                 </td>
-                <td className="p-0 align-middle">
-                  <div className="bg-[#1c424f] text-white rounded-lg px-4 py-5 text-center font-extrabold text-[1.9rem] leading-none tracking-wide min-w-57.5">
-                    {product.harga_konsumen.toLocaleString("id-ID")}
-                  </div>
-                </td>
-                <td className="p-0 align-middle">
-                  <div className="bg-[#e5e5e7] text-[#1c424f] rounded-lg px-4 py-5 text-center font-extrabold text-[1.9rem] leading-none tracking-wide min-w-57.5">
-                    {product.harga_buyback.toLocaleString("id-ID")}
-                  </div>
-                </td>
-                <td className="p-0 align-middle">
-                  <a
-                    href="https://wa.me/6281233272733"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="h-full min-h-22 w-full inline-flex items-center justify-center gap-2 bg-[#ce9233] hover:bg-[#b87f2d] text-white px-4 py-2 rounded-lg font-bold transition"
-                  >
-                    <svg
-                      className="w-6 h-6"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 50 50"
-                      fill="currentColor"
+                {brands.flatMap((brandName) => {
+                  const cell = row.byBrand[brandName];
+                  return [
+                    <td
+                      key={`${row.productName}-${brandName}-beli`}
+                      className={`px-4 py-4 text-sm text-center font-semibold border border-[#f2ece0] ${
+                        index % 2 === 0
+                          ? "bg-[#f9f3e7] text-[#704f19]"
+                          : "bg-[#f4ead7] text-[#704f19]"
+                      }`}
                     >
-                      <path d="M25,2C12.318,2,2,12.318,2,25c0,3.96,1.023,7.854,2.963,11.29L2.037,46.73c-0.096,0.343-0.003,0.711,0.245,0.966 C2.473,47.893,2.733,48,3,48c0.08,0,0.161-0.01,0.24-0.029l10.896-2.699C17.463,47.058,21.21,48,25,48c12.682,0,23-10.318,23-23 S37.682,2,25,2z M36.57,33.116c-0.492,1.362-2.852,2.605-3.986,2.772c-1.018,0.149-2.306,0.213-3.72-0.231 c-0.857-0.27-1.957-0.628-3.366-1.229c-5.923-2.526-9.791-8.415-10.087-8.804C15.116,25.235,13,22.463,13,19.594 s1.525-4.28,2.067-4.864c0.542-0.584,1.181-0.73,1.575-0.73s0.787,0.005,1.132,0.021c0.363,0.018,0.85-0.137,1.329,1.001 c0.492,1.168,1.673,4.037,1.819,4.33c0.148,0.292,0.246,0.633,0.05,1.022c-0.196,0.389-0.294,0.632-0.59,0.973 s-0.62,0.76-0.886,1.022c-0.296,0.291-0.603,0.606-0.259,1.19c0.344,0.584,1.529,2.493,3.285,4.039 c2.255,1.986,4.158,2.602,4.748,2.894c0.59,0.292,0.935,0.243,1.279-0.146c0.344-0.39,1.476-1.703,1.869-2.286 s0.787-0.487,1.329-0.292c0.542,0.194,3.445,1.604,4.035,1.896c0.59,0.292,0.984,0.438,1.132,0.681 C37.062,30.587,37.062,31.755,36.57,33.116z"></path>
-                    </svg>
-                    Chat
-                  </a>
-                </td>
+                      {formatRupiah(cell?.harga_beli)}
+                    </td>,
+                    <td
+                      key={`${row.productName}-${brandName}-buyback`}
+                      className={`px-4 py-4 text-sm text-center font-semibold border border-[#f2ece0] ${
+                        index % 2 === 0
+                          ? "bg-[#eaf1f4] text-[#1c424f]"
+                          : "bg-[#dfecef] text-[#1c424f]"
+                      }`}
+                    >
+                      {formatRupiah(cell?.harga_buyback)}
+                    </td>,
+                  ];
+                })}
               </tr>
             ))}
           </tbody>

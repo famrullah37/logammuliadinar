@@ -38,7 +38,7 @@ export default function LoginPage() {
           password,
         });
         if (signInError) throw signInError;
-        router.push("/dashboard");
+        router.push("/admin");
       }
     } catch (err) {
       const errorMessage =
