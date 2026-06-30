@@ -1,8 +1,30 @@
+import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Header from "@/components/Header";
 import ProductTable from "@/components/ProductTable";
 import WhySection from "@/components/WhySection";
 import Footer from "@/components/Footer";
+
+export const metadata: Metadata = {
+  title: "Harga Dinar Emas Terkini — Beli & Buyback Logam Mulia",
+  description:
+    "Cek harga beli dan buyback dinar emas terbaru hari ini dari berbagai brand terpercaya. Beli dinar emas syariah berkualitas tinggi secara online, aman dan mudah.",
+  keywords: [
+    "harga dinar emas hari ini",
+    "beli dinar emas online",
+    "harga buyback dinar emas",
+    "dinar emas 4.25 gram harga",
+    "toko dinar emas online terpercaya",
+    "investasi dinar emas",
+    "dinar emas syariah",
+  ],
+  openGraph: {
+    title: "Harga Dinar Emas Terkini — Beli & Buyback Logam Mulia",
+    description:
+      "Cek harga beli dan buyback dinar emas terbaru hari ini dari berbagai brand terpercaya.",
+    url: "/",
+  },
+};
 
 export default function Home() {
   return (
