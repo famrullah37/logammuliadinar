@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import AdminNav from "@/components/admin/AdminNav";
 import { api, ApiError } from "@/lib/api";
-import { daysUntil, formatHijri, haulYear, hijri, isRamadanFirst, nextHaul } from "@/lib/hijri";
+import { daysUntil, formatHijri, hijri, isRamadanFirst, nextHaul } from "@/lib/hijri";
 
 interface StockItem {
   id: string;
@@ -21,7 +21,7 @@ interface StockItem {
 interface Reserve {
   id: string;
   order_number: string;
-  kind: "sale" | "reversal";
+  kind: "sale" | "reversal" | "carryover";
   base_amount: number;
   amount: number;
   created_at: string;
@@ -36,7 +36,16 @@ interface ZakatData {
   last_zakat: { entry_date: string; amount: number; description: string | null } | null;
   reserves: Reserve[];
   reserve_totals: { belum: number; sudah: number; transaksi_belum: number };
-  payouts: { id: string; paid_date: string; amount: number; note: string | null; transaksi: number }[];
+  payouts: {
+    id: string; paid_date: string; amount: number; note: string | null; transaksi: number;
+    kind: "penyisihan" | "haul"; haul_year: number | null;
+    kewajiban: number | null; dibayar_sebelumnya: number | null; tabungan: number | null; sisa_tabungan: number | null;
+  }[];
+  period: {
+    haul_year: number;
+    dibayar_awal: number;
+    haul_payout: { paid_date: string; amount: number; kewajiban: number; dibayar_sebelumnya: number; tabungan: number; sisa_tabungan: number } | null;
+  };
 }
 
 const NISAB_GRAM = 85;
@@ -127,28 +136,44 @@ export default function ZakatPage() {
   const haul = nextHaul(now);
   const sisaHari = daysUntil(haul, now);
   const hariHaul = isRamadanFirst(now);
-  const tahun = haulYear(now);
-  const sudahDicatat = !!data?.last_zakat?.description?.includes(`1 Ramadhan ${tahun} H`);
+  const tahun = data?.period.haul_year ?? 0;
+  const haulPaid = data?.period.haul_payout ?? null;
+  const dibayarAwal = data?.period.dibayar_awal ?? 0;
+  const kewajiban = Math.round(zakat);
+  const sisaKewajiban = Math.max(0, kewajiban - dibayarAwal);
+  const tabungan = data?.reserve_totals.belum ?? 0;
+  const selisih = tabungan - sisaKewajiban; // + lebih (dibawa ke haul berikutnya), − kurang (ditambah dari kas)
 
-  const record = async () => {
-    if (!wajib || zakat <= 0) return;
-    if (sudahDicatat && !confirm(`Zakat haul 1 Ramadhan ${tahun} H sudah pernah dicatat. Tetap catat lagi?`)) return;
-    if (!confirm(`Catat zakat haul 1 Ramadhan ${tahun} H sebesar ${rp(zakat)} sebagai kas keluar hari ini?`)) return;
+  const payHaul = async () => {
+    if (!wajib) return;
+    const lines = [
+      `Bayar zakat haul 1 Ramadhan ${tahun} H sebesar ${rp(sisaKewajiban)}?`,
+      selisih < 0 ? `Tabungan kurang ${rp(-selisih)} — sisanya diambil dari kas.` : `Tabungan lebih ${rp(selisih)} — disimpan untuk haul berikutnya.`,
+      hariHaul ? null : "Catatan: hari ini bukan 1 Ramadhan.",
+      "Keterangan (opsional, mis. disalurkan ke BAZNAS/masjid):",
+    ].filter(Boolean);
+    const note = window.prompt(lines.join("\n"), "");
+    if (note === null) return;
     try {
       setSaving(true);
-      await api("/api/admin/cash", {
+      const res = await api<{ dibayar_sekarang: number; sisa_tabungan: number; kewajiban: number }>("/api/admin/zakat/haul", {
         method: "POST",
         body: {
-          direction: "out",
-          category: "zakat",
-          amount: Math.round(zakat),
-          description: `Zakat perdagangan haul 1 Ramadhan ${tahun} H, dihitung ${todayWib()} (harta bersih ${rp(bersih)})`,
+          harga_emas: num(form.hargaEmas),
+          include_pending: form.includePending,
+          kas_lain: num(form.kasLain),
+          piutang: num(form.piutang),
+          utang: num(form.utang),
+          note,
         },
       });
-      toast.success("Zakat dicatat di Buku Kas");
+      toast.success(`Zakat haul dibayar ${rp(res.dibayar_sekarang)}${res.sisa_tabungan ? ` · sisa tabungan ${rp(res.sisa_tabungan)} dibawa ke tahun depan` : ""}`);
+      setSelected(null);
+      setLoading(true);
+      setReloadKey((k) => k + 1);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) { router.push("/login"); return; }
-      toast.error(err instanceof Error ? err.message : "Gagal mencatat");
+      toast.error(err instanceof Error ? err.message : "Gagal membayar zakat haul");
     } finally {
       setSaving(false);
     }
@@ -193,9 +218,15 @@ export default function ZakatPage() {
                 lalu hitung ulang tepat pada 1 Ramadhan. Membayar sebelum haul (ta&apos;jil) dibolehkan menurut jumhur ulama.
               </p>
             )}
-            {sudahDicatat && (
+            {haulPaid && (
               <p className="mt-3 rounded-lg bg-emerald-100 px-3 py-2 text-xs text-emerald-800">
-                Zakat haul 1 Ramadhan {tahun} H sudah dicatat ({data?.last_zakat?.entry_date} · {rp(data?.last_zakat?.amount ?? 0)}).
+                Zakat haul 1 Ramadhan {tahun} H sudah dibayar pada {haulPaid.paid_date}: kewajiban {rp(haulPaid.kewajiban)},
+                dibayar saat haul {rp(haulPaid.amount)}{haulPaid.dibayar_sebelumnya ? `, dicicil lebih awal ${rp(haulPaid.dibayar_sebelumnya)}` : ""}.
+              </p>
+            )}
+            {!haulPaid && dibayarAwal > 0 && (
+              <p className="mt-3 rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
+                Sudah dikeluarkan lebih awal (ta&apos;jil) untuk haul 1 Ramadhan {tahun} H: {rp(dibayarAwal)} — mengurangi kewajiban saat haul.
               </p>
             )}
           </div>
@@ -204,8 +235,10 @@ export default function ZakatPage() {
           <section className="mb-6 bg-white rounded-2xl border border-[#908974]/30 p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <h2 className="font-bold text-gray-900">Penyisihan zakat 2,5% dari penjualan</h2>
-                <p className="text-sm text-gray-500">Disisihkan otomatis dari harga jual setiap penjualan selesai (tanpa ongkir & kode unik).</p>
+                <h2 className="font-bold text-gray-900">Tabungan zakat (2,5% dari penjualan)</h2>
+                <p className="text-sm text-gray-500">
+                  Disisihkan otomatis dari harga jual setiap penjualan selesai (tanpa ongkir & kode unik). Kewajiban sebenarnya dihitung saat haul.
+                </p>
               </div>
               <div className="flex gap-3 text-right">
                 <div className="rounded-xl bg-amber-50 px-4 py-2">
@@ -256,6 +289,7 @@ export default function ZakatPage() {
                           <td className="px-3 py-2">
                             <span className="font-mono text-xs">{z.order_number}</span>
                             {z.kind === "reversal" && <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 text-[10px] text-red-600">koreksi pembatalan</span>}
+                            {z.kind === "carryover" && <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 text-[10px] text-sky-700">kelebihan dari haul sebelumnya</span>}
                             <span className="block text-[11px] text-gray-400">
                               {new Date(z.created_at).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "short", year: "numeric" })}
                             </span>
@@ -281,9 +315,10 @@ export default function ZakatPage() {
                     Dipilih: <span className="font-semibold">{chosenRows.length} transaksi</span> ·{" "}
                     <span className="font-bold tabular-nums">{rp(chosenTotal)}</span>
                   </p>
-                  <button onClick={payout} disabled={paying || chosenRows.length === 0 || chosenTotal <= 0}
-                    className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40">
-                    {paying ? "Memproses..." : "Keluarkan zakat terpilih"}
+                  <button onClick={payout} disabled={paying || !!haulPaid || chosenRows.length === 0 || chosenTotal <= 0}
+                    title={haulPaid ? "Haul periode ini sudah dibayar; pengeluaran lebih awal untuk haul berikutnya dimulai 1 Syawal" : undefined}
+                    className="px-5 py-2.5 rounded-lg text-sm font-semibold border border-emerald-600 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40">
+                    {paying ? "Memproses..." : "Keluarkan lebih awal (ta'jil)"}
                   </button>
                 </div>
               </>
@@ -297,7 +332,15 @@ export default function ZakatPage() {
                     <li key={p.id} className="flex flex-wrap justify-between gap-2 py-2">
                       <span className="text-gray-700">
                         {new Date(`${p.paid_date}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                        <span className="ml-2 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600">
+                          {p.kind === "haul" ? `Haul ${p.haul_year} H` : `Ta'jil${p.haul_year ? ` haul ${p.haul_year} H` : ""}`}
+                        </span>
                         <span className="text-gray-400"> · {p.transaksi} transaksi{p.note ? ` · ${p.note}` : ""}</span>
+                        {p.kind === "haul" && p.kewajiban !== null && (
+                          <span className="block text-xs text-gray-400">
+                            kewajiban {rp(p.kewajiban)} · tabungan {rp(p.tabungan ?? 0)}{p.sisa_tabungan ? ` · sisa ${rp(p.sisa_tabungan)} dibawa` : ""}
+                          </span>
+                        )}
                       </span>
                       <span className="font-semibold tabular-nums">{rp(p.amount)}</span>
                     </li>
@@ -307,7 +350,8 @@ export default function ZakatPage() {
             )}
           </section>
 
-          <h2 className="mb-3 font-bold text-gray-900">Pembanding: perhitungan zakat perdagangan saat haul</h2>
+          <h2 className="mb-1 font-bold text-gray-900">Kewajiban zakat saat haul (rumus NU Online)</h2>
+          <p className="mb-3 text-sm text-gray-500">(Stok dinilai harga jual + kas + piutang − utang) × 2,5% bila ≥ nisab 85 gram emas. Bandingkan dengan tabungan, lalu bayar pada 1 Ramadhan.</p>
           <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
             <div className="space-y-6">
               <section className="bg-white rounded-2xl border border-[#908974]/30 p-5">
@@ -402,20 +446,32 @@ export default function ZakatPage() {
                 )}
               </div>
 
+              {wajib && (
+                <div className="mt-4 rounded-xl border border-[#f2ece0] p-3">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-500">Tabungan vs kewajiban haul {tahun} H</p>
+                  <Line k="Kewajiban (2,5%)" v={rp(kewajiban)} />
+                  {dibayarAwal > 0 && <Line k="− Sudah dikeluarkan lebih awal" v={rp(dibayarAwal)} />}
+                  <Line k="Sisa kewajiban" v={rp(sisaKewajiban)} strong />
+                  <Line k="Tabungan zakat terkumpul" v={rp(tabungan)} />
+                  <p className={`mt-1 rounded-lg px-3 py-2 text-xs ${selisih < 0 ? "bg-amber-50 text-amber-800" : "bg-sky-50 text-sky-800"}`}>
+                    {selisih < 0
+                      ? `Tabungan kurang ${rp(-selisih)} — saat bayar, kekurangannya diambil dari kas.`
+                      : selisih > 0
+                        ? `Tabungan lebih ${rp(selisih)} — disimpan sebagai tabungan untuk haul berikutnya.`
+                        : "Tabungan pas dengan sisa kewajiban."}
+                  </p>
+                </div>
+              )}
+
               <div className="mt-4 flex gap-2 print:hidden">
-                <button onClick={record} disabled={!wajib || saving}
+                <button onClick={payHaul} disabled={!wajib || saving || !!haulPaid}
                   className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-[#1c424f] text-white hover:bg-[#15323c] disabled:opacity-40">
-                  {saving ? "Mencatat..." : "Catat di Buku Kas"}
+                  {saving ? "Memproses..." : haulPaid ? `Haul ${tahun} H sudah dibayar` : `Bayar zakat haul ${tahun} H`}
                 </button>
                 <button onClick={() => window.print()} className="px-4 py-2.5 rounded-lg text-sm font-semibold border border-[#908974]/40 text-[#1c424f]">
                   Cetak
                 </button>
               </div>
-              {data.last_zakat && (
-                <p className="mt-3 text-xs text-gray-500">
-                  Zakat terakhir dicatat: {data.last_zakat.entry_date} · {rp(data.last_zakat.amount)}
-                </p>
-              )}
               <p className="mt-3 text-xs text-gray-400">
                 Ringkasan pendapat umum (jumhur ulama/BAZNAS), bukan fatwa. Konfirmasikan tanggal haul dan cara penilaian ke ustadz atau lembaga zakat Anda.
               </p>

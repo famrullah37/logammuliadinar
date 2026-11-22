@@ -3,9 +3,11 @@ import { BusinessError, withTransaction } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { addAutoCash } from "@/lib/ledger";
 import { UUID_RE } from "@/lib/queries";
+import { zakatPeriodYear } from "@/lib/hijri";
 
 /**
- * Admin: keluarkan dana zakat dari penyisihan penjualan.
+ * Admin: keluarkan dana zakat lebih awal (ta'jil) dari tabungan penyisihan penjualan.
+ * Dicatat sebagai cicilan kewajiban haul (1 Ramadhan) periode berjalan.
  * Penyisihan yang dipilih (atau semua yang belum dikeluarkan) ditandai sudah dikeluarkan,
  * dan jumlahnya dicatat sebagai kas keluar "Zakat" — semuanya dalam satu transaksi.
  */
@@ -22,6 +24,11 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await withTransaction(async (tx) => {
+      const period = zakatPeriodYear();
+      const haulPaid = await tx.queryOne("SELECT id FROM zakat_payouts WHERE kind = 'haul' AND haul_year = $1", [period]);
+      if (haulPaid) {
+        throw new BusinessError(`Zakat haul 1 Ramadhan ${period} H sudah dibayar. Pengeluaran lebih awal untuk haul berikutnya bisa dimulai 1 Syawal.`);
+      }
       const rows = await tx.query<{ id: string; amount: number }>(
         ids
           ? "SELECT id, amount FROM zakat_reserves WHERE payout_id IS NULL AND id = ANY($1::uuid[]) FOR UPDATE"
@@ -35,13 +42,14 @@ export async function POST(req: NextRequest) {
       if (rows.length === 0 || total <= 0) throw new BusinessError("Tidak ada dana zakat yang bisa dikeluarkan", 400);
 
       const payout = await tx.queryOne<{ id: string; paid_date: string }>(
-        "INSERT INTO zakat_payouts (amount, note) VALUES ($1, $2) RETURNING id, to_char(paid_date, 'YYYY-MM-DD') AS paid_date",
-        [total, note],
+        `INSERT INTO zakat_payouts (kind, haul_year, amount, note) VALUES ('penyisihan', $1, $2, $3)
+         RETURNING id, to_char(paid_date, 'YYYY-MM-DD') AS paid_date`,
+        [zakatPeriodYear(), total, note],
       );
       await tx.query("UPDATE zakat_reserves SET payout_id = $1 WHERE id = ANY($2::uuid[])", [payout!.id, rows.map((r) => r.id)]);
       await addAutoCash(
         tx, "out", total, "zakat",
-        `Pengeluaran zakat 2,5% penjualan (${rows.length} transaksi)${note ? ` — ${note}` : ""}`,
+        `Zakat lebih awal (ta'jil) untuk haul 1 Ramadhan ${zakatPeriodYear()} H — ${rows.length} transaksi${note ? ` — ${note}` : ""}`,
         `ZKT-${payout!.id.slice(0, 8)}`,
       );
       return { payout_id: payout!.id, paid_date: payout!.paid_date, amount: total, count: rows.length };

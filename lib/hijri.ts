@@ -50,3 +50,13 @@ export function daysUntil(target: Date, now: Date = new Date()): number {
  * bulan 9–12: haul 1 Ramadhan tahun ini sudah/baru lewat.
  */
 export const haulYear = (now: Date = new Date()) => hijri(now).year;
+
+/**
+ * Periode haul (tahun hijriah 1 Ramadhan) untuk pembayaran zakat:
+ * - selama bulan Ramadhan → haul Ramadhan tahun ini (masa pembayaran haul);
+ * - Syawal s.d. Sya'ban → haul Ramadhan berikutnya (pembayaran lebih awal / ta'jil).
+ */
+export function zakatPeriodYear(now: Date = new Date()): number {
+  const h = hijri(now);
+  return h.month === 9 ? h.year : hijri(nextHaul(now)).year;
+}

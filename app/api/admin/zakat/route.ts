@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { query, queryOne } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
+import { zakatPeriodYear } from "@/lib/hijri";
 
 /**
  * Admin: data untuk kalkulator zakat perdagangan, per hari ini (dijalankan pada hari haul).
@@ -13,8 +14,9 @@ export async function GET() {
   const denied = await requireAdmin();
   if (denied) return denied;
 
+  const period = zakatPeriodYear();
   try {
-    const [items, untracked, cash, pending, lastZakat, reserves, reserveTotals, payouts] = await Promise.all([
+    const [items, untracked, cash, pending, lastZakat, reserves, reserveTotals, payouts, early, haul] = await Promise.all([
       query(
         `SELECT pr.id, b.name AS brand_name, p.name AS product_name, v.type_name, v.weight,
                 pr.stock, pr.harga_beli AS harga_jual, pr.stock * pr.harga_beli AS nilai
@@ -44,10 +46,10 @@ export async function GET() {
       ),
       // Penyisihan 2,5% dari penjualan: semua yang belum dikeluarkan + 100 terakhir yang sudah.
       query(
-        `(SELECT z.id, z.order_number, z.kind, z.base_amount, z.amount, z.created_at, NULL::text AS paid_date
+        `(SELECT z.id, COALESCE(z.order_number, 'Sisa tabungan') AS order_number, z.kind, z.base_amount, z.amount, z.created_at, NULL::text AS paid_date
             FROM zakat_reserves z WHERE z.payout_id IS NULL)
          UNION ALL
-         (SELECT z.id, z.order_number, z.kind, z.base_amount, z.amount, z.created_at, to_char(zp.paid_date, 'YYYY-MM-DD')
+         (SELECT z.id, COALESCE(z.order_number, 'Sisa tabungan'), z.kind, z.base_amount, z.amount, z.created_at, to_char(zp.paid_date, 'YYYY-MM-DD')
             FROM zakat_reserves z JOIN zakat_payouts zp ON zp.id = z.payout_id
            ORDER BY z.created_at DESC LIMIT 100)
          ORDER BY created_at DESC`,
@@ -59,9 +61,19 @@ export async function GET() {
            FROM zakat_reserves`,
       ),
       query(
-        `SELECT zp.id, to_char(zp.paid_date, 'YYYY-MM-DD') AS paid_date, zp.amount, zp.note,
+        `SELECT zp.id, to_char(zp.paid_date, 'YYYY-MM-DD') AS paid_date, zp.amount, zp.note, zp.kind, zp.haul_year,
+                zp.kewajiban, zp.dibayar_sebelumnya, zp.tabungan, zp.sisa_tabungan,
                 (SELECT count(*)::int FROM zakat_reserves z WHERE z.payout_id = zp.id) AS transaksi
            FROM zakat_payouts zp ORDER BY zp.created_at DESC LIMIT 50`,
+      ),
+      queryOne<{ total: number }>(
+        "SELECT COALESCE(SUM(amount), 0) AS total FROM zakat_payouts WHERE kind = 'penyisihan' AND haul_year = $1",
+        [period],
+      ),
+      queryOne(
+        `SELECT to_char(paid_date, 'YYYY-MM-DD') AS paid_date, amount, kewajiban, dibayar_sebelumnya, tabungan, sisa_tabungan
+           FROM zakat_payouts WHERE kind = 'haul' AND haul_year = $1`,
+        [period],
       ),
     ]);
 
@@ -74,6 +86,7 @@ export async function GET() {
       reserves,
       reserve_totals: reserveTotals,
       payouts,
+      period: { haul_year: period, dibayar_awal: early?.total ?? 0, haul_payout: haul },
     });
   } catch (err) {
     console.error("GET /api/admin/zakat", err);
