@@ -1,13 +1,34 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import AdminNav from "@/components/admin/AdminNav";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { api, ApiError } from "@/lib/api";
 import type { Order, OrderStatus } from "@/lib/types";
 import toast from "react-hot-toast";
 
 const formatRupiah = (v: number) => `Rp ${v.toLocaleString("id-ID")}`;
+
+/** Pesan tagihan untuk pembeli: rincian barang, ongkir, kode unik, total. */
+const billMessage = (o: Order) => {
+  const lines = [
+    `Assalamu'alaikum ${o.buyer_name}, terima kasih atas pesanan ${o.order_number} di Logam Mulia Dinar.`,
+    `Harga barang: ${formatRupiah(o.total_harga)}`,
+  ];
+  if (o.delivery_method === "delivery") lines.push(`Ongkos kirim: ${o.ongkir ? formatRupiah(o.ongkir) : "Gratis"}`);
+  if (o.kode_unik) lines.push(`Kode unik: ${o.kode_unik}`);
+  lines.push(`Total ${o.payment_method === "transfer" ? "transfer" : "bayar"}: ${formatRupiah(o.total_bayar ?? o.total_harga)}`);
+  if (o.payment_method === "transfer") lines.push("Mohon transfer tepat sesuai nominal (termasuk 3 digit terakhir).");
+  return lines.join("\n");
+};
+
+/** Link wa.me ke nomor pelanggan (08xx → 628xx), opsional dengan pesan. */
+const waLink = (phone: string, text?: string) => {
+  let n = phone.replace(/\D/g, "");
+  if (n.startsWith("0")) n = "62" + n.slice(1);
+  return `https://wa.me/${n}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
+};
 
 const STATUS_OPTIONS: { value: OrderStatus; label: string; color: string }[] = [
   { value: "pending",   label: "Menunggu",    color: "bg-yellow-100 text-yellow-800" },
@@ -24,58 +45,62 @@ export default function AdminOrdersPage() {
   const [filterStatus, setFilterStatus] = useState<OrderStatus | "all">("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from("orders")
-        .select(`
-          id, order_number, quantity, harga_beli, total_harga,
-          buyer_name, buyer_phone, buyer_email,
-          delivery_method, delivery_address, delivery_city, delivery_postal_code,
-          payment_method, notes, status, created_at,
-          product_variants(type_name, weight, products(name)),
-          brands(name)
-        `)
-        .order("created_at", { ascending: false });
+  const [reloadKey, setReloadKey] = useState(0);
 
-      if (filterStatus !== "all") {
-        query = query.eq("status", filterStatus);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      setOrders((data ?? []) as unknown as Order[]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal memuat pesanan");
-    } finally {
-      setLoading(false);
-    }
-  }, [filterStatus]);
-
+  // Proxy sudah mengarahkan ke /login bila belum login.
   useEffect(() => {
-    const bootstrap = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { router.push("/login"); return; }
-        await fetchOrders();
-      } catch {
-        router.push("/login");
-      } finally {
+    let ignore = false;
+    const qs = filterStatus !== "all" ? `?status=${filterStatus}` : "";
+    api<Order[]>(`/api/admin/orders${qs}`)
+      .then((data) => { if (!ignore) setOrders(data); })
+      .catch((err) => {
+        if (ignore) return;
+        if (err instanceof ApiError && err.status === 401) { router.push("/login"); return; }
+        toast.error(err instanceof Error ? err.message : "Gagal memuat pesanan");
+      })
+      .finally(() => {
+        if (ignore) return;
+        setLoading(false);
         setAuthLoading(false);
-      }
-    };
-    bootstrap();
-  }, [router, fetchOrders]);
+      });
+    return () => { ignore = true; };
+  }, [filterStatus, router, reloadKey]);
+
+  /** Admin mengisi ongkos kirim (ongkir belum bisa dihitung otomatis). */
+  const setOngkir = async (order: Order) => {
+    const input = window.prompt(
+      `Ongkos kirim untuk ${order.order_number} ke ${order.delivery_city ?? "alamat pembeli"} (Rp, isi 0 bila gratis):`,
+      order.ongkir === null || order.ongkir === undefined ? "" : String(order.ongkir),
+    );
+    if (input === null) return;
+    const value = Number(input.replace(/[^\d]/g, ""));
+    if (input.trim() === "" || !Number.isFinite(value)) { toast.error("Nominal ongkir tidak valid"); return; }
+    try {
+      const res = await api<{ ongkir: number; total_bayar: number; total_transfer: number | null }>(
+        `/api/admin/orders/${order.id}/ongkir`, { method: "PATCH", body: { ongkir: value } },
+      );
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? { ...o, ...res } : o)));
+      toast.success(`Ongkir disimpan — total bayar ${formatRupiah(res.total_bayar)}`);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) { router.push("/login"); return; }
+      toast.error(err instanceof Error ? err.message : "Gagal menyimpan ongkir");
+    }
+  };
 
   const updateStatus = async (orderId: string, status: OrderStatus) => {
     try {
       setUpdatingId(orderId);
-      const { error } = await supabase.from("orders").update({ status }).eq("id", orderId);
-      if (error) throw error;
-      setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status } : o));
-      toast.success("Status pesanan diperbarui");
+      const res = await api<{ status: OrderStatus; receipt_number: string | null; receipt_token: string | null }>(
+        `/api/admin/orders/${orderId}`, { method: "PATCH", body: { status } },
+      );
+      setOrders((prev) => prev.map((o) => o.id === orderId
+        ? { ...o, status: res.status, invoice_number: res.receipt_number, receipt_token: res.receipt_token }
+        : o));
+      toast.success(status === "completed" && res.receipt_number
+        ? `Pesanan selesai — nota ${res.receipt_number} terbit`
+        : "Status pesanan diperbarui");
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) { router.push("/login"); return; }
       toast.error(err instanceof Error ? err.message : "Gagal update status");
     } finally {
       setUpdatingId(null);
@@ -103,6 +128,9 @@ export default function AdminOrdersPage() {
             <h1 className="text-2xl font-bold text-gray-900">
               Manajemen <span className="text-[#1c424f]">Pesanan</span>
             </h1>
+            <Link href="/admin/buyback" className="text-sm font-semibold text-[#1c424f] hover:underline">
+              Lihat pengajuan buyback →
+            </Link>
             <p className="text-sm text-gray-500">{orders.length} pesanan ditampilkan</p>
           </div>
           <Link href="/admin"
@@ -111,24 +139,25 @@ export default function AdminOrdersPage() {
           </Link>
         </div>
       </header>
+      <AdminNav />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
         {/* Filter */}
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => setFilterStatus("all")}
+            onClick={() => { setLoading(true); setFilterStatus("all"); }}
             className={`px-4 py-2 rounded-lg text-sm font-semibold transition border ${filterStatus === "all" ? "bg-[#1c424f] text-white border-[#1c424f]" : "bg-white text-gray-700 border-[#908974]/40 hover:border-[#1c424f]"}`}>
             Semua
           </button>
           {STATUS_OPTIONS.map((s) => (
             <button key={s.value}
-              onClick={() => setFilterStatus(s.value)}
+              onClick={() => { setLoading(true); setFilterStatus(s.value); }}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition border ${filterStatus === s.value ? "bg-[#1c424f] text-white border-[#1c424f]" : "bg-white text-gray-700 border-[#908974]/40 hover:border-[#1c424f]"}`}>
               {s.label}
             </button>
           ))}
-          <button onClick={fetchOrders}
+          <button onClick={() => { setLoading(true); setReloadKey((k) => k + 1); }}
             className="ml-auto px-4 py-2 rounded-lg text-sm font-semibold bg-white border border-[#908974]/40 text-[#1c424f] hover:bg-[#f7f4ed] transition">
             Refresh
           </button>
@@ -152,7 +181,10 @@ export default function AdminOrdersPage() {
                 <div key={order.id} className="bg-white rounded-2xl border border-[#908974]/30 shadow-sm p-5 sm:p-6">
                   <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
                     <div>
-                      <p className="text-xs text-gray-400 font-mono">{order.order_number}</p>
+                      <p className="text-xs text-gray-400 font-mono">
+                        {order.order_number}
+                        {order.invoice_number && <span className="ml-2 text-[#1c424f]">· Nota {order.invoice_number}</span>}
+                      </p>
                       <p className="font-bold text-gray-900 mt-0.5">
                         {pv?.products?.name} — {pv?.type_name} ({pv?.weight} gram)
                       </p>
@@ -170,8 +202,21 @@ export default function AdminOrdersPage() {
                       <p className="text-gray-500">{order.buyer_phone}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400">Total</p>
-                      <p className="font-bold text-[#1c424f]">{formatRupiah(order.total_harga)}</p>
+                      <p className="text-xs text-gray-400">Total bayar</p>
+                      <p className="font-bold text-[#1c424f]">{formatRupiah(order.total_bayar ?? order.total_harga)}</p>
+                      <p className="text-xs text-gray-500">barang {formatRupiah(order.total_harga)}</p>
+                      {order.delivery_method === "delivery" && (
+                        order.ongkir === null || order.ongkir === undefined ? (
+                          <p className="text-xs font-semibold text-amber-600">ongkir belum diisi</p>
+                        ) : (
+                          <p className="text-xs text-gray-500">ongkir {order.ongkir === 0 ? "gratis" : formatRupiah(order.ongkir)}</p>
+                        )
+                      )}
+                      {order.kode_unik && (
+                        <p className="text-xs text-gray-500">
+                          kode unik <span className="font-mono font-semibold text-[#b87f2d]">{order.kode_unik}</span>
+                        </p>
+                      )}
                     </div>
                     <div>
                       <p className="text-xs text-gray-400">Pengiriman</p>
@@ -203,12 +248,46 @@ export default function AdminOrdersPage() {
                         {s.label}
                       </button>
                     ))}
-                    <a
-                      href={`https://wa.me/${order.buyer_phone.replace(/\D/g, "")}`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="ml-auto px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-600 text-white transition">
-                      WhatsApp
-                    </a>
+                    <div className="ml-auto flex flex-wrap gap-2">
+                      {order.delivery_method === "delivery" && (order.status === "pending" || order.status === "confirmed") && (
+                        <button
+                          onClick={() => setOngkir(order)}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white transition">
+                          {order.ongkir === null || order.ongkir === undefined ? "Isi ongkir" : "Ubah ongkir"}
+                        </button>
+                      )}
+                      {order.status !== "completed" && order.status !== "cancelled" &&
+                        !(order.delivery_method === "delivery" && (order.ongkir === null || order.ongkir === undefined)) && (
+                        <a
+                          href={waLink(order.buyer_phone, billMessage(order))}
+                          target="_blank" rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition">
+                          Kirim tagihan via WA
+                        </a>
+                      )}
+                      {order.invoice_number && order.receipt_token && (
+                        <>
+                          <a
+                            href={`/nota/${order.receipt_token}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1c424f] hover:bg-[#15323c] text-white transition">
+                            Lihat nota
+                          </a>
+                          <a
+                            href={waLink(order.buyer_phone, `Assalamu'alaikum ${order.buyer_name}, terima kasih telah berbelanja di Logam Mulia Dinar. Berikut nota pembelian ${order.invoice_number}: ${window.location.origin}/nota/${order.receipt_token}`)}
+                            target="_blank" rel="noopener noreferrer"
+                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition">
+                            Kirim nota via WA
+                          </a>
+                        </>
+                      )}
+                      <a
+                        href={waLink(order.buyer_phone)}
+                        target="_blank" rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-600 text-white transition">
+                        WhatsApp
+                      </a>
+                    </div>
                   </div>
                 </div>
               );

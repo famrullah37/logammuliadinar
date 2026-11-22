@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import Image from "next/image";
@@ -19,27 +19,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        // Sign up
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-        });
-        if (signUpError) throw signUpError;
-        toast.success(
-          "Registrasi berhasil! Silakan cek email untuk verifikasi.",
-        );
-        setEmail("");
-        setPassword("");
-      } else {
-        // Sign in
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (signInError) throw signInError;
-        router.push("/admin");
-      }
+      await api("/api/auth/login", { method: "POST", body: { email, password } });
+      router.push("/admin");
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Terjadi kesalahan";

@@ -7,7 +7,65 @@
   --brand-bg: #f7f4ed;
 }
 
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display-serif);
+
+  --color-brand-deep: #1c424f;
+  --color-brand-ink: #0f2a33;
+  --color-brand-gold: #ce9233;
+  --color-brand-gold-dark: #b87f2d;
+  --color-brand-gold-light: #f3dfb8;
+  --color-brand-olive: #908974;
+  --color-brand-cream: #f7f4ed;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   background-color: var(--brand-bg);
   color: #1f2937;
+}
+
+/* Animasi masuk halus; dimatikan bila pengguna memilih kurangi gerakan. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(-3deg);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-float-slow {
+  animation: float-slow 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-fade-up,
+  .animate-float-slow {
+    animation: none;
+  }
 }

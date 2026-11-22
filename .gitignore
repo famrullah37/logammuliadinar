@@ -42,3 +42,5 @@ next-env.d.ts
 
 # docs (local documentation only)
 /docs
+
+!.env.example

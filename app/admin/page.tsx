@@ -1,24 +1,31 @@
 "use client";
 
+import AdminNav from "@/components/admin/AdminNav";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { api, ApiError } from "@/lib/api";
 import type { Brand, Price, ProductMaster, ProductVariant } from "@/lib/types";
 import toast from "react-hot-toast";
 
 const formatCurrency = (value: number) => `Rp ${value.toLocaleString("id-ID")}`;
 
 // ── form state types ──────────────────────────────────────────────
-type PriceForm = { brand_id: string; variant_id: string; harga_beli: string; harga_buyback: string };
+type PriceForm = { brand_id: string; variant_id: string; harga_beli: string; harga_buyback: string; image_url: string; description: string };
 type BrandForm = { name: string };
 type ProductForm = { name: string };
-type VariantForm = { product_id: string; type_name: string; weight: string };
+type VariantForm = {
+  product_id: string; type_name: string; weight: string;
+  purity: string; image_url: string; description: string;
+};
 
-const INIT_PRICE: PriceForm = { brand_id: "", variant_id: "", harga_beli: "", harga_buyback: "" };
+const INIT_PRICE: PriceForm = { brand_id: "", variant_id: "", harga_beli: "", harga_buyback: "", image_url: "", description: "" };
 const INIT_BRAND: BrandForm = { name: "" };
 const INIT_PRODUCT: ProductForm = { name: "" };
-const INIT_VARIANT: VariantForm = { product_id: "", type_name: "", weight: "" };
+const INIT_VARIANT: VariantForm = { product_id: "", type_name: "", weight: "", purity: "999.9", image_url: "", description: "" };
+
+// Gambar yang sudah ada di /public, ditawarkan sebagai pilihan cepat.
+const IMAGE_PRESETS = ["/1per4-DINAR.png", "/1per2-DINAR.png", "/1-DINAR.png", "/BLKLG-DINAR.png"];
 
 export default function AdminPage() {
   const router = useRouter();
@@ -69,64 +76,61 @@ export default function AdminPage() {
   );
 
   // ── fetch helpers ────────────────────────────────────────────────
-  const fetchMasterData = useCallback(async () => {
-    const [brandsRes, productsRes, variantsRes] = await Promise.all([
-      supabase.from("brands").select("id,name").order("name"),
-      supabase.from("products").select("id,name").order("name"),
-      supabase.from("product_variants").select("id,product_id,type_name,weight").order("weight"),
-    ]);
-    if (brandsRes.error) throw brandsRes.error;
-    if (productsRes.error) throw productsRes.error;
-    if (variantsRes.error) throw variantsRes.error;
-    setBrands((brandsRes.data ?? []) as Brand[]);
-    setProducts((productsRes.data ?? []) as ProductMaster[]);
-    setVariants((variantsRes.data ?? []) as ProductVariant[]);
-  }, []);
-
-  const fetchPrices = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("prices")
-      .select(`id,brand_id,variant_id,harga_beli,harga_buyback,created_at,brands(id,name),product_variants(id,type_name,weight,product_id,products(id,name))`)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    setPrices((data ?? []) as Price[]);
-  }, []);
-
-  const loadData = useCallback(async () => {
-    try {
-      setDataLoading(true);
-      await Promise.all([fetchMasterData(), fetchPrices()]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal memuat data");
-    } finally {
-      setDataLoading(false);
-    }
-  }, [fetchMasterData, fetchPrices]);
-
-  // ── auth ─────────────────────────────────────────────────────────
-  useEffect(() => {
-    const bootstrap = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { router.push("/login"); return; }
-        await loadData();
-      } catch {
-        router.push("/login");
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-    bootstrap();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event: unknown, session: { user?: { id: string } } | null) => {
-        if (!session) router.push("/login");
-      },
+  const fetchAll = useCallback(async () => {
+    const data = await api<{ brands: Brand[]; products: ProductMaster[]; variants: ProductVariant[]; prices: Price[] }>(
+      "/api/admin/data",
     );
-    return () => subscription?.unsubscribe();
-  }, [router, loadData]);
+    setBrands(data.brands);
+    setProducts(data.products);
+    setVariants(data.variants);
+    setPrices(data.prices);
+  }, []);
 
-  const logout = async () => { await supabase.auth.signOut(); router.push("/login"); };
+  /** Tangani error API: sesi habis → ke /login, selain itu tampilkan toast. */
+  const handleError = useCallback(
+    (err: unknown, fallback: string) => {
+      if (err instanceof ApiError && err.status === 401) { router.push("/login"); return; }
+      toast.error(err instanceof Error ? err.message : fallback);
+    },
+    [router],
+  );
+
+  // Naikkan reloadKey untuk memuat ulang data (tombol Refresh).
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // ── muat data ────────────────────────────────────────────────────
+  // Proxy sudah mengarahkan ke /login bila belum login; di sini cukup muat data.
+  useEffect(() => {
+    let ignore = false;
+    api<{ brands: Brand[]; products: ProductMaster[]; variants: ProductVariant[]; prices: Price[] }>("/api/admin/data")
+      .then((data) => {
+        if (ignore) return;
+        setBrands(data.brands);
+        setProducts(data.products);
+        setVariants(data.variants);
+        setPrices(data.prices);
+      })
+      .catch((err) => { if (!ignore) handleError(err, "Gagal memuat data"); })
+      .finally(() => {
+        if (ignore) return;
+        setDataLoading(false);
+        setAuthLoading(false);
+      });
+    return () => { ignore = true; };
+  }, [handleError, reloadKey]);
+
+  const logout = async () => {
+    await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
+    router.push("/login");
+  };
+
+  /** Simpan (tambah/ubah) satu resource admin. */
+  const save = (resource: string, id: string | null, payload: Record<string, unknown>) =>
+    id
+      ? api(`/api/admin/${resource}/${id}`, { method: "PUT", body: payload })
+      : api(`/api/admin/${resource}`, { method: "POST", body: payload });
+
+  const remove = (resource: string, id: string) => api(`/api/admin/${resource}/${id}`, { method: "DELETE" });
 
   // ── price CRUD ───────────────────────────────────────────────────
   const submitPriceForm = async (e: React.FormEvent) => {
@@ -141,20 +145,15 @@ export default function AdminPage() {
     }
     try {
       setPriceSubmitting(true);
-      const payload = { brand_id: priceForm.brand_id, variant_id: priceForm.variant_id, harga_beli: hargaBeli, harga_buyback: hargaBuyback };
-      if (editingPriceId) {
-        const { error } = await supabase.from("prices").update(payload).eq("id", editingPriceId);
-        if (error) throw error;
-        toast.success("Harga berhasil diperbarui");
-      } else {
-        const { error } = await supabase.from("prices").insert([payload]);
-        if (error) throw error;
-        toast.success("Harga berhasil ditambahkan");
-      }
+      await save("prices", editingPriceId, {
+        brand_id: priceForm.brand_id, variant_id: priceForm.variant_id, harga_beli: hargaBeli, harga_buyback: hargaBuyback,
+        image_url: priceForm.image_url.trim(), description: priceForm.description.trim(),
+      });
+      toast.success(editingPriceId ? "Harga berhasil diperbarui" : "Harga berhasil ditambahkan");
       setPriceForm(INIT_PRICE); setEditingPriceId(null);
-      await fetchPrices();
+      await fetchAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan harga");
+      handleError(err, "Gagal menyimpan harga");
     } finally {
       setPriceSubmitting(false);
     }
@@ -163,12 +162,11 @@ export default function AdminPage() {
   const deletePrice = async (id: string) => {
     if (!confirm("Yakin ingin menghapus data harga ini?")) return;
     try {
-      const { error } = await supabase.from("prices").delete().eq("id", id);
-      if (error) throw error;
+      await remove("prices", id);
       setPrices((c) => c.filter((p) => p.id !== id));
       toast.success("Harga berhasil dihapus");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menghapus harga");
+      handleError(err, "Gagal menghapus harga");
     }
   };
 
@@ -179,19 +177,12 @@ export default function AdminPage() {
     if (!name) { toast.error("Nama brand wajib diisi"); return; }
     try {
       setBrandSubmitting(true);
-      if (editingBrandId) {
-        const { error } = await supabase.from("brands").update({ name }).eq("id", editingBrandId);
-        if (error) throw error;
-        toast.success("Brand berhasil diperbarui");
-      } else {
-        const { error } = await supabase.from("brands").insert([{ name }]);
-        if (error) throw error;
-        toast.success("Brand berhasil ditambahkan");
-      }
+      await save("brands", editingBrandId, { name });
+      toast.success(editingBrandId ? "Brand berhasil diperbarui" : "Brand berhasil ditambahkan");
       setBrandForm(INIT_BRAND); setEditingBrandId(null);
-      await fetchMasterData(); await fetchPrices();
+      await fetchAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan brand");
+      handleError(err, "Gagal menyimpan brand");
     } finally {
       setBrandSubmitting(false);
     }
@@ -200,12 +191,11 @@ export default function AdminPage() {
   const deleteBrand = async (id: string) => {
     if (!confirm("Yakin ingin menghapus brand ini?")) return;
     try {
-      const { error } = await supabase.from("brands").delete().eq("id", id);
-      if (error) throw error;
+      await remove("brands", id);
       toast.success("Brand berhasil dihapus");
-      await fetchMasterData(); await fetchPrices();
+      await fetchAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menghapus brand");
+      handleError(err, "Gagal menghapus brand");
     }
   };
 
@@ -216,19 +206,12 @@ export default function AdminPage() {
     if (!name) { toast.error("Nama produk wajib diisi"); return; }
     try {
       setProductSubmitting(true);
-      if (editingProductId) {
-        const { error } = await supabase.from("products").update({ name }).eq("id", editingProductId);
-        if (error) throw error;
-        toast.success("Produk berhasil diperbarui");
-      } else {
-        const { error } = await supabase.from("products").insert([{ name }]);
-        if (error) throw error;
-        toast.success("Produk berhasil ditambahkan");
-      }
+      await save("products", editingProductId, { name });
+      toast.success(editingProductId ? "Produk berhasil diperbarui" : "Produk berhasil ditambahkan");
       setProductForm(INIT_PRODUCT); setEditingProductId(null);
-      await fetchMasterData();
+      await fetchAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan produk");
+      handleError(err, "Gagal menyimpan produk");
     } finally {
       setProductSubmitting(false);
     }
@@ -237,12 +220,11 @@ export default function AdminPage() {
   const deleteProduct = async (id: string) => {
     if (!confirm("Yakin ingin menghapus produk ini? Semua variannya akan ikut terhapus.")) return;
     try {
-      const { error } = await supabase.from("products").delete().eq("id", id);
-      if (error) throw error;
+      await remove("products", id);
       toast.success("Produk berhasil dihapus");
-      await fetchMasterData(); await fetchPrices();
+      await fetchAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menghapus produk");
+      handleError(err, "Gagal menghapus produk");
     }
   };
 
@@ -256,20 +238,17 @@ export default function AdminPage() {
     if (Number.isNaN(weight) || weight <= 0) { toast.error("Berat harus angka lebih dari 0"); return; }
     try {
       setVariantSubmitting(true);
-      const payload = { product_id: variantForm.product_id, type_name, weight };
-      if (editingVariantId) {
-        const { error } = await supabase.from("product_variants").update(payload).eq("id", editingVariantId);
-        if (error) throw error;
-        toast.success("Varian berhasil diperbarui");
-      } else {
-        const { error } = await supabase.from("product_variants").insert([payload]);
-        if (error) throw error;
-        toast.success("Varian berhasil ditambahkan");
-      }
+      await save("variants", editingVariantId, {
+        product_id: variantForm.product_id, type_name, weight,
+        purity: variantForm.purity.trim() || "999.9",
+        image_url: variantForm.image_url.trim(),
+        description: variantForm.description.trim(),
+      });
+      toast.success(editingVariantId ? "Varian berhasil diperbarui" : "Varian berhasil ditambahkan");
       setVariantForm(INIT_VARIANT); setEditingVariantId(null);
-      await fetchMasterData(); await fetchPrices();
+      await fetchAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menyimpan varian");
+      handleError(err, "Gagal menyimpan varian");
     } finally {
       setVariantSubmitting(false);
     }
@@ -278,12 +257,11 @@ export default function AdminPage() {
   const deleteVariant = async (id: string) => {
     if (!confirm("Yakin ingin menghapus varian ini?")) return;
     try {
-      const { error } = await supabase.from("product_variants").delete().eq("id", id);
-      if (error) throw error;
+      await remove("variants", id);
       toast.success("Varian berhasil dihapus");
-      await fetchMasterData(); await fetchPrices();
+      await fetchAll();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menghapus varian");
+      handleError(err, "Gagal menghapus varian");
     }
   };
 
@@ -317,6 +295,12 @@ export default function AdminPage() {
             >
               Pesanan
             </Link>
+            <Link
+              href="/admin/buyback"
+              className="bg-white border border-[#1c424f]/30 hover:bg-[#f7f4ed] text-[#1c424f] px-4 py-2 rounded-lg text-sm font-semibold transition"
+            >
+              Buyback
+            </Link>
             <button
               onClick={logout}
               className="bg-[#ce9233] hover:bg-[#b87f2d] text-white px-5 py-2 rounded-lg font-semibold transition"
@@ -326,6 +310,7 @@ export default function AdminPage() {
           </div>
         </div>
       </header>
+      <AdminNav />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
@@ -378,6 +363,39 @@ export default function AdminPage() {
                 onChange={(e) => setPriceForm((p) => ({ ...p, harga_buyback: e.target.value }))}
                 className="w-full px-4 py-3 border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f]"
                 placeholder="Contoh 1375000"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Gambar khusus brand ini <span className="font-normal text-gray-400">(opsional — kosong = pakai gambar varian)</span>
+              </label>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  list="variant-image-presets"
+                  value={priceForm.image_url}
+                  onChange={(e) => setPriceForm((p) => ({ ...p, image_url: e.target.value }))}
+                  className="w-full px-4 py-3 border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f]"
+                  placeholder="/1-DINAR.png atau https://..."
+                />
+                {(priceForm.image_url.startsWith("/") || priceForm.image_url.startsWith("https://")) && (
+                  // eslint-disable-next-line @next/next/no-img-element -- pratinjau sederhana, path bebas diketik admin
+                  <img src={priceForm.image_url} alt="Pratinjau" className="h-12 w-12 shrink-0 rounded-lg border border-[#908974]/30 object-contain bg-[#f7f4ed]" />
+                )}
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Deskripsi khusus brand ini <span className="font-normal text-gray-400">(opsional — tampil di halaman detail brand)</span>
+              </label>
+              <textarea
+                rows={3}
+                value={priceForm.description}
+                onChange={(e) => setPriceForm((p) => ({ ...p, description: e.target.value }))}
+                className="w-full px-4 py-3 border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f] resize-y"
+                placeholder="Contoh: Dinar Antam dengan sertifikat LBMA, kemasan segel resmi."
               />
             </div>
 
@@ -524,6 +542,50 @@ export default function AdminPage() {
                 placeholder="Contoh: 4.25"
               />
             </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Kadar emas (Au)</label>
+              <input
+                type="text"
+                value={variantForm.purity}
+                onChange={(e) => setVariantForm((v) => ({ ...v, purity: e.target.value }))}
+                className="w-full px-4 py-3 border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f]"
+                placeholder="999.9"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Gambar <span className="font-normal text-gray-400">(opsional — path /public atau URL https)</span>
+              </label>
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  list="variant-image-presets"
+                  value={variantForm.image_url}
+                  onChange={(e) => setVariantForm((v) => ({ ...v, image_url: e.target.value }))}
+                  className="w-full px-4 py-3 border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f]"
+                  placeholder="/1-DINAR.png"
+                />
+                <datalist id="variant-image-presets">
+                  {IMAGE_PRESETS.map((src) => <option key={src} value={src} />)}
+                </datalist>
+                {(variantForm.image_url.startsWith("/") || variantForm.image_url.startsWith("https://")) && (
+                  // eslint-disable-next-line @next/next/no-img-element -- pratinjau sederhana, path bebas diketik admin
+                  <img src={variantForm.image_url} alt="Pratinjau" className="h-12 w-12 shrink-0 rounded-lg border border-[#908974]/30 object-contain bg-[#f7f4ed]" />
+                )}
+              </div>
+            </div>
+            <div className="md:col-span-3">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Deskripsi <span className="font-normal text-gray-400">(opsional — tampil di halaman produk)</span>
+              </label>
+              <textarea
+                rows={3}
+                value={variantForm.description}
+                onChange={(e) => setVariantForm((v) => ({ ...v, description: e.target.value }))}
+                className="w-full px-4 py-3 border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f] resize-y"
+                placeholder="Contoh: Dinar emas 4,25 gram dengan desain Ka'bah, dilengkapi sertifikat keaslian."
+              />
+            </div>
             <div className="md:col-span-3 flex flex-wrap gap-3">
               <button type="submit" disabled={variantSubmitting}
                 className="bg-[#1c424f] hover:bg-[#15323c] text-white px-6 py-3 rounded-xl font-semibold transition disabled:opacity-60">
@@ -562,7 +624,7 @@ export default function AdminPage() {
                           <td className="px-4 py-2 border-t border-[#f2ece0] text-center">
                             <div className="flex justify-center gap-2">
                               <button
-                                onClick={() => { setEditingVariantId(v.id); setVariantForm({ product_id: v.product_id, type_name: v.type_name, weight: String(v.weight) }); }}
+                                onClick={() => { setEditingVariantId(v.id); setVariantForm({ product_id: v.product_id, type_name: v.type_name, weight: String(v.weight), purity: v.purity ?? "999.9", image_url: v.image_url ?? "", description: v.description ?? "" }); }}
                                 className="px-2.5 py-1 rounded bg-[#1c424f] text-white text-xs font-semibold hover:bg-[#15323c] transition">Edit</button>
                               <button onClick={() => deleteVariant(v.id)}
                                 className="px-2.5 py-1 rounded border border-red-300 text-red-600 text-xs font-semibold hover:bg-red-50 transition">Hapus</button>
@@ -581,7 +643,7 @@ export default function AdminPage() {
         <section className="bg-white rounded-2xl border border-[#908974]/30 shadow-sm p-5 sm:p-7">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-xl font-bold text-gray-900">List Harga ({prices.length})</h2>
-            <button onClick={loadData}
+            <button onClick={() => { setDataLoading(true); setReloadKey((k) => k + 1); }}
               className="bg-white border border-[#908974]/40 text-[#1c424f] px-4 py-2 rounded-lg font-semibold hover:bg-[#f7f4ed] transition text-sm">
               Refresh
             </button>
@@ -626,7 +688,7 @@ export default function AdminPage() {
                             <button
                               onClick={() => {
                                 setEditingPriceId(price.id);
-                                setPriceForm({ brand_id: price.brand_id, variant_id: price.variant_id, harga_beli: String(price.harga_beli), harga_buyback: String(price.harga_buyback) });
+                                setPriceForm({ brand_id: price.brand_id, variant_id: price.variant_id, harga_beli: String(price.harga_beli), harga_buyback: String(price.harga_buyback), image_url: price.image_url ?? "", description: price.description ?? "" });
                               }}
                               className="px-3 py-1.5 rounded-lg bg-[#1c424f] text-white text-xs font-semibold hover:bg-[#15323c] transition">Edit</button>
                             <button onClick={() => deletePrice(price.id)}

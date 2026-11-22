@@ -2,93 +2,96 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Menu, MessageCircle, X } from "lucide-react";
+import { whatsappLink } from "@/lib/site";
 
-export default function Navbar() {
+const LINKS = [
+  { href: "/#produk", label: "Harga" },
+  { href: "/buyback", label: "Buyback" },
+  { href: "/#cara-beli", label: "Cara Beli" },
+  { href: "/#kenapa", label: "Keunggulan" },
+  { href: "/pesanan", label: "Cek Pesanan" },
+];
+
+/** solid: selalu berlatar gelap (untuk halaman tanpa hero gelap di bagian atas). */
+export default function Navbar({ solid: alwaysSolid = false }: { solid?: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const solid = alwaysSolid || scrolled || isOpen;
 
   return (
-    <nav className="absolute top-0 inset-x-0 z-50 bg-transparent">
+    <nav
+      className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
+        solid
+          ? "bg-brand-ink/95 backdrop-blur-md shadow-lg shadow-black/10 border-b border-white/10"
+          : "bg-transparent"
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
-            <Image
-              src="/logolmd.png"
-              alt="Logam Mulia Dinar"
-              width={100}
-              height={45}
-            />
+        <div className="flex justify-between items-center h-16 sm:h-20">
+          <Link href="/" className="flex items-center" aria-label="Logam Mulia Dinar — Beranda">
+            <Image src="/logolmd.png" alt="Logam Mulia Dinar" width={100} height={45} priority />
           </Link>
 
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-8">
-            <Link
-              href="/#produk"
-              className="text-white/90 hover:text-white font-medium transition"
-            >
-              Produk
-            </Link>
-            <Link
-              href="/#kenapa"
-              className="text-white/90 hover:text-white font-medium transition"
-            >
-              Kenapa Kami
-            </Link>
+          <div className="hidden md:flex items-center gap-1">
+            {LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="px-4 py-2 rounded-full text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition"
+              >
+                {l.label}
+              </Link>
+            ))}
             <a
-              href="https://wa.me/6281233272733"
+              href={whatsappLink()}
               target="_blank"
               rel="noopener noreferrer"
-              className="bg-[#ce9233] hover:bg-[#b87f2d] text-white px-5 py-2 rounded-lg font-semibold transition"
+              className="ml-3 inline-flex items-center gap-2 bg-brand-gold hover:bg-brand-gold-dark text-white px-5 py-2.5 rounded-full text-sm font-semibold transition shadow-lg shadow-brand-gold/20"
             >
+              <MessageCircle size={16} strokeWidth={2.5} />
               Hubungi Kami
             </a>
           </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden">
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="text-white/90 hover:text-white"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
-          </div>
+          <button
+            onClick={() => setIsOpen((o) => !o)}
+            className="md:hidden p-2 -mr-2 rounded-lg text-white/90 hover:text-white hover:bg-white/10 transition"
+            aria-label={isOpen ? "Tutup menu" : "Buka menu"}
+            aria-expanded={isOpen}
+          >
+            {isOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
 
-        {/* Mobile Menu */}
         {isOpen && (
-          <div className="md:hidden pb-4 space-y-2 bg-black/30 backdrop-blur-sm rounded-lg px-3 py-2">
-            <Link
-              href="/#produk"
-              className="block text-white/90 hover:text-white py-2 font-medium"
-            >
-              Produk
-            </Link>
-            <Link
-              href="/#kenapa"
-              className="block text-white/90 hover:text-white py-2 font-medium"
-            >
-              Kenapa Kami
-            </Link>
+          <div className="md:hidden pb-5 pt-1 space-y-1 animate-fade-up">
+            {LINKS.map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                onClick={() => setIsOpen(false)}
+                className="block px-3 py-3 rounded-xl text-white/85 hover:text-white hover:bg-white/10 font-medium transition"
+              >
+                {l.label}
+              </Link>
+            ))}
             <a
-              href="https://wa.me/6281233272733"
+              href={whatsappLink()}
               target="_blank"
               rel="noopener noreferrer"
-              className="block bg-[#ce9233] hover:bg-[#b87f2d] text-white px-4 py-2 rounded-lg font-semibold text-center transition"
+              className="mt-2 flex items-center justify-center gap-2 bg-brand-gold hover:bg-brand-gold-dark text-white px-4 py-3 rounded-xl font-semibold transition"
             >
+              <MessageCircle size={18} strokeWidth={2.5} />
               Hubungi Kami
             </a>
           </div>

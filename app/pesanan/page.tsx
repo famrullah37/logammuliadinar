@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { api, ApiError } from "@/lib/api";
 import type { Order } from "@/lib/types";
 
 const formatRupiah = (v: number) => `Rp ${v.toLocaleString("id-ID")}`;
@@ -15,7 +15,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   cancelled: { label: "Dibatalkan",          color: "bg-red-100 text-red-800" },
 };
 
-export default function PesananPage() {
+function PesananContent() {
   const searchParams = useSearchParams();
   const [orderNumber, setOrderNumber] = useState(searchParams.get("no") ?? "");
   const [phone, setPhone] = useState(searchParams.get("phone") ?? "");
@@ -32,28 +32,14 @@ export default function PesananPage() {
     try {
       setLoading(true); setError(null); setOrder(null); setSearched(false);
 
-      const { data, error: fetchError } = await supabase
-        .from("orders")
-        .select(`
-          id, order_number, quantity, harga_beli, total_harga,
-          delivery_method, payment_method, status, created_at, notes,
-          delivery_address, delivery_city, delivery_postal_code,
-          product_variants(type_name, weight, products(name)),
-          brands(name)
-        `)
-        .eq("order_number", orderNumber.trim().toUpperCase())
-        .eq("buyer_phone", phone.trim())
-        .single();
-
-      if (fetchError || !data) {
-        setError("Pesanan tidak ditemukan. Pastikan nomor pesanan dan nomor telepon sudah benar.");
-        return;
-      }
-
-      setOrder(data as unknown as Order);
+      const data = await api<Order>("/api/orders/lookup", {
+        method: "POST",
+        body: { order_number: orderNumber, phone },
+      });
+      setOrder(data);
       setSearched(true);
-    } catch {
-      setError("Terjadi kesalahan, coba lagi.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Terjadi kesalahan, coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -126,8 +112,16 @@ export default function PesananPage() {
                 <p className="font-semibold text-gray-900">{order.quantity} pcs</p>
               </div>
               <div className="bg-[#f7f4ed] rounded-lg p-3">
-                <p className="text-gray-500 text-xs">Total</p>
-                <p className="font-semibold text-[#1c424f]">{formatRupiah(order.total_harga)}</p>
+                <p className="text-gray-500 text-xs">Total bayar</p>
+                <p className="font-semibold text-[#1c424f]">{formatRupiah(order.total_bayar ?? order.total_harga)}</p>
+                {order.delivery_method === "delivery" && (
+                  <p className="text-[11px] text-gray-500">
+                    {order.ongkir === null || order.ongkir === undefined
+                      ? "ongkir menunggu konfirmasi admin"
+                      : order.ongkir === 0 ? "gratis ongkir" : `termasuk ongkir ${formatRupiah(order.ongkir)}`}
+                  </p>
+                )}
+                {order.kode_unik && <p className="text-[11px] text-gray-500">termasuk kode unik {order.kode_unik}</p>}
               </div>
               <div className="bg-[#f7f4ed] rounded-lg p-3">
                 <p className="text-gray-500 text-xs">Pengiriman</p>
@@ -154,6 +148,21 @@ export default function PesananPage() {
               </div>
             )}
 
+            {order.invoice_number && order.receipt_token && (
+              <a
+                href={`/nota/${order.receipt_token}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between gap-3 rounded-xl bg-[#1c424f] px-4 py-3 text-white transition hover:bg-[#15323c]"
+              >
+                <span>
+                  <span className="block text-xs text-white/60">Nota pembelian</span>
+                  <span className="font-mono text-sm font-semibold">{order.invoice_number}</span>
+                </span>
+                <span className="text-sm font-semibold text-[#f3dfb8]">Lihat nota →</span>
+              </a>
+            )}
+
             <p className="text-xs text-gray-400 text-center">
               Dipesan pada {order.created_at ? new Date(order.created_at).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" }) : "—"}
             </p>
@@ -161,5 +170,14 @@ export default function PesananPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// useSearchParams wajib dibungkus Suspense agar halaman bisa di-prerender.
+export default function PesananPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#f7f4ed]" />}>
+      <PesananContent />
+    </Suspense>
   );
 }

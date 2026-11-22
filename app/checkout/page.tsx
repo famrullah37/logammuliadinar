@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { api } from "@/lib/api";
 import type { CreateOrderPayload, DeliveryMethod, PaymentMethod } from "@/lib/types";
 
 interface CheckoutSummary {
@@ -17,7 +17,7 @@ interface CheckoutSummary {
 
 const formatRupiah = (v: number) => `Rp ${v.toLocaleString("id-ID")}`;
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const variantId = searchParams.get("variantId") ?? "";
@@ -41,28 +41,16 @@ export default function CheckoutPage() {
   });
 
   useEffect(() => {
-    if (!variantId || !brandId) { router.replace("/"); return; }
+    if (!variantId || !brandId || !Number.isInteger(qty) || qty < 1) { router.replace("/"); return; }
 
     const fetchSummary = async () => {
       try {
-        const [variantRes, priceRes] = await Promise.all([
-          supabase
-            .from("product_variants")
-            .select("type_name,weight,products(name)")
-            .eq("id", variantId)
-            .single(),
-          supabase
-            .from("prices")
-            .select("harga_beli,brands(name)")
-            .eq("variant_id", variantId)
-            .eq("brand_id", brandId)
-            .single(),
-        ]);
-
-        if (variantRes.error || priceRes.error) { router.replace("/"); return; }
-
-        const v = variantRes.data as { type_name: string; weight: number; products: { name: string } | null };
-        const p = priceRes.data as { harga_beli: number; brands: { name: string } | null };
+        const { variant: v, prices } = await api<{
+          variant: { type_name: string; weight: number; products: { name: string } | null };
+          prices: { brand_id: string; harga_beli: number; brands: { name: string } | null }[];
+        }>(`/api/variants/${encodeURIComponent(variantId)}`);
+        const p = prices.find((x) => x.brand_id === brandId);
+        if (!p) { router.replace("/"); return; }
 
         setSummary({
           productName: v.products?.name ?? "Produk",
@@ -89,6 +77,12 @@ export default function CheckoutPage() {
     if (!form.buyer_phone.trim()) { alert("Nomor telepon wajib diisi"); return; }
     if (form.delivery_method === "delivery" && !form.delivery_address.trim()) {
       alert("Alamat pengiriman wajib diisi"); return;
+    }
+    if (form.delivery_method === "delivery" && !form.delivery_city.trim()) {
+      alert("Kota tujuan wajib diisi"); return;
+    }
+    if (form.delivery_method === "delivery" && !/^\d{5}$/.test(form.delivery_postal_code.trim())) {
+      alert("Kode pos harus 5 digit"); return;
     }
 
     try {
@@ -146,7 +140,7 @@ export default function CheckoutPage() {
         <div className="max-w-3xl mx-auto flex items-center gap-3">
           <Link href="/" className="text-sm text-gray-500 hover:text-[#1c424f]">Beranda</Link>
           <span className="text-gray-400">/</span>
-          <Link href={`/produk/${variantId}`} className="text-sm text-gray-500 hover:text-[#1c424f]">Produk</Link>
+          <Link href={`/produk/${variantId}?brand=${brandId}`} className="text-sm text-gray-500 hover:text-[#1c424f]">Produk</Link>
           <span className="text-gray-400">/</span>
           <span className="text-sm text-gray-800 font-medium">Checkout</span>
         </div>
@@ -225,14 +219,14 @@ export default function CheckoutPage() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Kota</label>
-                  <input type="text" value={form.delivery_city} onChange={(e) => set("delivery_city", e.target.value)}
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Kota <span className="text-red-500">*</span></label>
+                  <input type="text" required maxLength={100} value={form.delivery_city} onChange={(e) => set("delivery_city", e.target.value)}
                     className="w-full px-4 py-3 border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f]"
                     placeholder="Malang" />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">Kode Pos</label>
-                  <input type="text" value={form.delivery_postal_code} onChange={(e) => set("delivery_postal_code", e.target.value)}
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Kode Pos <span className="text-red-500">*</span></label>
+                  <input type="text" required inputMode="numeric" pattern="\d{5}" maxLength={5} title="5 digit angka" value={form.delivery_postal_code} onChange={(e) => set("delivery_postal_code", e.target.value)}
                     className="w-full px-4 py-3 border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f]"
                     placeholder="65100" />
                 </div>
@@ -276,6 +270,16 @@ export default function CheckoutPage() {
               className="w-full bg-[#ce9233] hover:bg-[#b87f2d] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl text-lg transition shadow-lg">
               {submitting ? "Memproses..." : "Konfirmasi Pesanan"}
             </button>
+            {form.delivery_method === "delivery" && (
+              <p className="text-xs text-center text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                Total di atas belum termasuk ongkos kirim. Ongkir akan dikonfirmasi admin via WhatsApp sebelum pembayaran.
+              </p>
+            )}
+            {form.payment_method === "transfer" && (
+              <p className="text-xs text-center text-[#b87f2d]">
+                Untuk transfer, 3 digit kode unik (500–999) ditambahkan ke total agar pembayaran mudah dicocokkan.
+              </p>
+            )}
             <p className="text-xs text-center text-gray-400">
               Tidak perlu login · Admin akan menghubungi via WhatsApp
             </p>
@@ -283,5 +287,22 @@ export default function CheckoutPage() {
         </form>
       </main>
     </div>
+  );
+}
+
+function Spinner() {
+  return (
+    <div className="min-h-screen bg-[#f7f4ed] flex items-center justify-center">
+      <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-[#ce9233]" />
+    </div>
+  );
+}
+
+// useSearchParams wajib dibungkus Suspense agar halaman bisa di-prerender.
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<Spinner />}>
+      <CheckoutContent />
+    </Suspense>
   );
 }
