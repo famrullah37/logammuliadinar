@@ -30,6 +30,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 # Untuk menjalankan scripts/create-admin.mjs di dalam container
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+# Skema database untuk scripts/db-init.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/db ./db
 
 USER nextjs
 EXPOSE 3000

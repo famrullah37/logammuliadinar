@@ -1,108 +1,78 @@
-# Stack produksi: Traefik (HTTPS) → Next.js → PostgreSQL + Redis (rate limiting).
-# Siapkan file .env (salin dari .env.example), lalu:
-#   docker compose up -d --build
-#   docker compose exec app node scripts/create-admin.mjs admin@logammuliadinar.com   (password ditanyakan, tidak tersimpan di riwayat shell)
+# Aplikasi Logam Mulia Dinar saja. Traefik, PostgreSQL, dan Redis sudah berjalan di Docker
+# terpisah di VPS (dipakai bersama aplikasi lain) — compose ini tidak menjalankannya.
+#
+# Persiapan sekali (lihat .env.example untuk semua nilai):
+#   1. cp .env.example .env && chmod 600 .env   → isi DATABASE_URL, REDIS_URL (dengan password), SESSION_SECRET
+#   2. Buat database & user khusus di Postgres yang sudah ada (lihat .env.example)
+#   3. APP_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build
+#   4. docker compose exec app node scripts/db-init.mjs            (buat/perbarui tabel; aman diulang)
+#   5. docker compose exec app node scripts/create-admin.mjs admin@logammuliadinar.com
+#
+# Update: git pull && APP_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build --pull always
+#         lalu docker compose exec app node scripts/db-init.mjs
 
 services:
-  traefik:
-    image: traefik:v3.1
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    command:
-      - --providers.docker=true
-      - --providers.docker.exposedbydefault=false
-      - --entrypoints.web.address=:80
-      - --entrypoints.web.http.redirections.entrypoint.to=websecure
-      - --entrypoints.web.http.redirections.entrypoint.scheme=https
-      - --entrypoints.websecure.address=:443
-      - --certificatesresolvers.le.acme.httpchallenge=true
-      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
-      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
-      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - letsencrypt:/letsencrypt
-
   app:
     build:
       context: .
       args:
         NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
         APP_COMMIT: ${APP_COMMIT:-}
+    container_name: logammuliadinar
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+    # Traefik, Postgres, dan Redis di VPS berada di network masing-masing.
+    networks:
+      - proxy
+      - postgres
+      - redis
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/version').then(r=>{process.exitCode=r.ok?0:1}).catch(()=>{process.exitCode=1})"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 20s
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      SESSION_SECRET: ${SESSION_SECRET}
-      REDIS_URL: redis://redis:6379
-      NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     labels:
+      # Nama router/middleware diawali "lmd" agar tidak bentrok dengan aplikasi lain di Traefik yang sama.
       - traefik.enable=true
-      - traefik.http.routers.app.rule=Host(`${DOMAIN}`)
-      - traefik.http.routers.app.entrypoints=websecure
-      - traefik.http.routers.app.tls.certresolver=le
-      - traefik.http.services.app.loadbalancer.server.port=3000
+      - traefik.docker.network=${TRAEFIK_NETWORK:-proxy}
+      - traefik.http.services.lmd.loadbalancer.server.port=3000
+      # HTTPS domain utama
+      - traefik.http.routers.lmd.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.lmd.entrypoints=${TRAEFIK_HTTPS_ENTRYPOINT:-websecure}
+      - traefik.http.routers.lmd.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le}
+      - traefik.http.routers.lmd.service=lmd
       # www.<domain> -> <domain> (301). Router & sertifikat terpisah: bila DNS www belum ada,
       # sertifikat domain utama tetap terbit. Butuh record DNS A/CNAME untuk www.
-      - traefik.http.routers.app-www.rule=Host(`www.${DOMAIN}`)
-      - traefik.http.routers.app-www.entrypoints=websecure
-      - traefik.http.routers.app-www.tls.certresolver=le
-      - traefik.http.routers.app-www.service=app
-      - traefik.http.routers.app-www.middlewares=www-to-apex
-      - traefik.http.middlewares.www-to-apex.redirectregex.regex=^https?://www\.(.+)
-      - traefik.http.middlewares.www-to-apex.redirectregex.replacement=https://$${1}
-      - traefik.http.middlewares.www-to-apex.redirectregex.permanent=true
+      - traefik.http.routers.lmd-www.rule=Host(`www.${DOMAIN}`)
+      - traefik.http.routers.lmd-www.entrypoints=${TRAEFIK_HTTPS_ENTRYPOINT:-websecure}
+      - traefik.http.routers.lmd-www.tls.certresolver=${TRAEFIK_CERTRESOLVER:-le}
+      - traefik.http.routers.lmd-www.service=lmd
+      - traefik.http.routers.lmd-www.middlewares=lmd-www-to-apex
+      - traefik.http.middlewares.lmd-www-to-apex.redirectregex.regex=^https?://www\.(.+)
+      - traefik.http.middlewares.lmd-www-to-apex.redirectregex.replacement=https://$${1}
+      - traefik.http.middlewares.lmd-www-to-apex.redirectregex.permanent=true
+      # HTTP -> HTTPS (Traefik di VPS tidak mengalihkan secara global, jadi router ini diperlukan)
+      - traefik.http.routers.lmd-http.rule=Host(`${DOMAIN}`) || Host(`www.${DOMAIN}`)
+      - traefik.http.routers.lmd-http.entrypoints=${TRAEFIK_HTTP_ENTRYPOINT:-web}
+      - traefik.http.routers.lmd-http.service=lmd
+      - traefik.http.routers.lmd-http.middlewares=lmd-to-https
+      - traefik.http.middlewares.lmd-to-https.redirectscheme.scheme=https
+      - traefik.http.middlewares.lmd-to-https.redirectscheme.permanent=true
 
+networks:
+  proxy:
+    external: true
+    name: ${TRAEFIK_NETWORK:-proxy}
   postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      # Dijalankan sekali saat volume masih kosong
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    # Tidak ada "ports": database hanya bisa diakses dari jaringan internal Docker.
-
+    external: true
+    name: ${POSTGRES_NETWORK:-postgresql-wsnb_default}
   redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    # Hanya untuk penghitung rate limit: tanpa persistensi, batasi memori.
-    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "volatile-ttl"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    # Tidak ada "ports": hanya bisa diakses dari jaringan internal Docker.
-
-volumes:
-  postgres_data:
-  letsencrypt:
+    external: true
+    name: ${REDIS_NETWORK:-redis_public}

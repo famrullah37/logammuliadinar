@@ -66,7 +66,8 @@ function hitMemory(key: string, windowSec: number): [number, number] {
 
 export async function hit(name: RateLimitName, identifier: string): Promise<Result> {
   const { limit, windowSec } = RATE_LIMITS[name];
-  const key = `rl:${name}:${identifier}`;
+  // Awalan lmd: — Redis di VPS dipakai bersama aplikasi lain.
+  const key = `lmd:rl:${name}:${identifier}`;
   let count: number;
   let ttl: number;
 
