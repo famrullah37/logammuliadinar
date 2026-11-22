@@ -15,7 +15,7 @@ export default function Header() {
         src="/slide_01.jpg"
         alt="Koin 1 Dinar emas Au 999.9"
         fill
-        priority
+        preload
         sizes="100vw"
         className="object-cover object-[70%_center] -z-20"
       />

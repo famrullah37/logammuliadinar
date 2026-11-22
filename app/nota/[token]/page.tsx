@@ -78,7 +78,7 @@ export default async function NotaPage({ params }: Props) {
           {/* Kop */}
           <header className="flex flex-wrap items-start justify-between gap-6 bg-brand-ink px-6 py-6 text-white sm:px-10 print:bg-white print:text-black print:border-b-2 print:border-black">
             <div>
-              <Image src="/logolmd.png" alt={SITE.name} width={110} height={50} className="print:invert-0" />
+              <Image src="/logolmd.png" alt={SITE.name} width={110} height={34} />
               <p className="mt-3 text-xs text-white/60 print:text-gray-600">
                 WhatsApp {SITE.whatsappDisplay} · {SITE.email}
               </p>

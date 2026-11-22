@@ -10,6 +10,10 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+# Commit git untuk label versi (folder .git tidak ikut ke image). Contoh:
+#   APP_COMMIT=$(git rev-parse --short HEAD) docker compose up -d --build
+ARG APP_COMMIT=""
+ENV APP_COMMIT=$APP_COMMIT
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

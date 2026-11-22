@@ -3,7 +3,8 @@ import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "./session";
+import { passwordVersion, SESSION_COOKIE, verifySessionToken } from "./session";
+import { queryOne } from "./db";
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number) => Promise<Buffer>;
 const KEY_LEN = 64;
@@ -23,10 +24,20 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return timingSafeEqual(actual, expected);
 }
 
-/** userId admin yang sedang login, atau null. */
+/**
+ * userId admin yang sedang login, atau null.
+ * Selain tanda tangan token, dicek ke database: akun masih ada dan password belum diganti.
+ */
 export async function getAdminId(): Promise<string | null> {
   const store = await cookies();
-  return verifySessionToken(store.get(SESSION_COOKIE)?.value);
+  const session = verifySessionToken(store.get(SESSION_COOKIE)?.value);
+  if (!session) return null;
+  const user = await queryOne<{ password_hash: string }>(
+    "SELECT password_hash FROM admin_users WHERE id = $1",
+    [session.userId],
+  ).catch(() => null); // id bukan uuid / DB error → anggap tidak terautentikasi
+  if (!user || passwordVersion(user.password_hash) !== session.pwdVersion) return null;
+  return session.userId;
 }
 
 /** Dipakai di awal route handler admin: kembalikan response 401 bila belum login. */

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { versionLabel } from "@/lib/version";
 
 const LINKS = [
   { href: "/admin", label: "Produk & Harga" },
@@ -35,6 +36,7 @@ export default function AdminNav() {
             </Link>
           );
         })}
+        <span className="ml-auto self-center whitespace-nowrap pl-3 text-xs text-white/50" title="Versi aplikasi">{versionLabel()}</span>
       </div>
     </nav>
   );

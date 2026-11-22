@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   for (const it of items) {
     const beli = Number(it.harga_beli);
     const buyback = Number(it.harga_buyback);
-    if (typeof it.id !== "string" || !UUID_RE.test(it.id) || !validPrice(beli) || !validPrice(buyback)) {
+    if (typeof it.id !== "string" || !UUID_RE.test(it.id) || !validPrice(beli) || beli <= 0 || !validPrice(buyback)) {
       return NextResponse.json({ error: "Data harga tidak valid" }, { status: 400 });
     }
     parsed.push({ id: it.id, beli, buyback });

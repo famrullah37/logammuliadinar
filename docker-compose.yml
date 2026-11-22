@@ -30,6 +30,7 @@ services:
       context: .
       args:
         NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
+        APP_COMMIT: ${APP_COMMIT:-}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}

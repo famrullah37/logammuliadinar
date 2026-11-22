@@ -39,7 +39,7 @@ export default function Navbar({ solid: alwaysSolid = false }: { solid?: boolean
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 sm:h-20">
           <Link href="/" className="flex items-center" aria-label="Logam Mulia Dinar — Beranda">
-            <Image src="/logolmd.png" alt="Logam Mulia Dinar" width={100} height={45} priority />
+            <Image src="/logolmd.png" alt="Logam Mulia Dinar" width={100} height={31} preload />
           </Link>
 
           <div className="hidden md:flex items-center gap-1">

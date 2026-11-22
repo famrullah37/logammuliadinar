@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Mail, MessageCircle } from "lucide-react";
 import { SITE, whatsappLink } from "@/lib/site";
+import { versionLabel } from "@/lib/version";
 
 const MENU = [
   { href: "/#produk", label: "Harga Dinar" },
@@ -20,7 +21,7 @@ export default function Footer() {
         <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr]">
           <div className="max-w-sm">
             <Link href="/" aria-label="Logam Mulia Dinar — Beranda">
-              <Image src="/logolmd.png" alt="Logam Mulia Dinar" width={110} height={50} />
+              <Image src="/logolmd.png" alt="Logam Mulia Dinar" width={110} height={34} />
             </Link>
             <p className="mt-5 text-sm leading-relaxed text-white/60">
               Platform investasi dinar emas syariah yang terpercaya, dengan harga beli dan buyback yang transparan.
@@ -68,7 +69,7 @@ export default function Footer() {
         </div>
 
         <div className="mt-14 flex flex-col gap-2 border-t border-white/10 pt-8 text-xs text-white/45 sm:flex-row sm:justify-between">
-          <p>© {currentYear} Logam Mulia Dinar. Semua hak dilindungi.</p>
+          <p>© {currentYear} Logam Mulia Dinar. Semua hak dilindungi. <span className="text-white/30">· {versionLabel()}</span></p>
           <p>Harga dapat berubah sewaktu-waktu mengikuti harga emas.</p>
         </div>
       </div>

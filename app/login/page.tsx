@@ -40,7 +40,7 @@ export default function LoginPage() {
               src="/logolmd.png"
               alt="Logam Mulia Dinar"
               width={120}
-              height={60}
+              height={38}
             />
           </Link>
         </div>

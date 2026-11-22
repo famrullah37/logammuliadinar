@@ -45,7 +45,25 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   const target = await resolve(ctx);
   if (!target) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
 
+  // Baris harga yang terkait (langsung atau lewat cascade) dan masih punya stok tidak boleh ikut terhapus.
+  const STOCK_GUARD: Record<string, string> = {
+    prices: "SELECT count(*)::int AS n FROM prices WHERE id = $1 AND stock > 0",
+    brands: "SELECT count(*)::int AS n FROM prices WHERE brand_id = $1 AND stock > 0",
+    product_variants: "SELECT count(*)::int AS n FROM prices WHERE variant_id = $1 AND stock > 0",
+    products: `SELECT count(*)::int AS n FROM prices pr JOIN product_variants v ON v.id = pr.variant_id
+                WHERE v.product_id = $1 AND pr.stock > 0`,
+  };
   try {
+    const guard = STOCK_GUARD[target.resource.table];
+    if (guard) {
+      const withStock = await queryOne<{ n: number }>(guard, [target.id]);
+      if (withStock && withStock.n > 0) {
+        return NextResponse.json(
+          { error: "Masih ada stok untuk data ini. Kosongkan stoknya dulu (menu Stok) agar modal & riwayat tidak hilang." },
+          { status: 409 },
+        );
+      }
+    }
     const row = await queryOne(`DELETE FROM ${target.resource.table} WHERE id = $1 RETURNING id`, [target.id]);
     if (!row) return NextResponse.json({ error: "Tidak ditemukan" }, { status: 404 });
     return NextResponse.json({ success: true });
