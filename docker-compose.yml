@@ -1,12 +1,14 @@
 # Stack produksi: Traefik (HTTPS) → Next.js → PostgreSQL + Redis (rate limiting).
 # Siapkan file .env (salin dari .env.example), lalu:
 #   docker compose up -d --build
-#   docker compose exec app node scripts/create-admin.mjs admin@contoh.com "password-kuat"
+#   docker compose exec app node scripts/create-admin.mjs admin@logammuliadinar.com   (password ditanyakan, tidak tersimpan di riwayat shell)
 
 services:
   traefik:
     image: traefik:v3.1
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
@@ -32,6 +34,14 @@ services:
         NEXT_PUBLIC_SITE_URL: https://${DOMAIN}
         APP_COMMIT: ${APP_COMMIT:-}
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/version').then(r=>{process.exitCode=r.ok?0:1}).catch(()=>{process.exitCode=1})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       SESSION_SECRET: ${SESSION_SECRET}
@@ -62,6 +72,8 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -80,6 +92,8 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     # Hanya untuk penghitung rate limit: tanpa persistensi, batasi memori.
     command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "volatile-ttl"]
     healthcheck:

@@ -42,6 +42,10 @@ export const RESOURCES: Record<string, Resource> = {
   },
 };
 
+/** Ambil konfigurasi resource dari whitelist; abaikan properti bawaan objek (constructor, __proto__, ...). */
+export const getResource = (key: string): Resource | undefined =>
+  Object.hasOwn(RESOURCES, key) ? RESOURCES[key] : undefined;
+
 /** Path lokal di /public (tanpa ".." atau "//") atau URL https. */
 export function isSafeImageUrl(v: string): boolean {
   if (v.length > 500) return false;

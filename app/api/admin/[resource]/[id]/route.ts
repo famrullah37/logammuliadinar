@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
-import { dbErrorResponse, parseBody, RESOURCES } from "@/lib/admin-resources";
+import { dbErrorResponse, getResource, parseBody } from "@/lib/admin-resources";
 import { UUID_RE } from "@/lib/queries";
 
 type Ctx = { params: Promise<{ resource: string; id: string }> };
 
 async function resolve(ctx: Ctx) {
   const { resource: key, id } = await ctx.params;
-  const resource = RESOURCES[key];
+  const resource = getResource(key);
   if (!resource || !UUID_RE.test(id)) return null;
   return { resource, id };
 }

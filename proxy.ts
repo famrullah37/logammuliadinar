@@ -21,8 +21,12 @@ export function proxy(request: NextRequest) {
   const mutating = !SAFE_METHODS.has(request.method);
 
   if (isApi && mutating) {
-    const length = Number(request.headers.get("content-length") ?? 0);
-    if (length > MAX_BODY_BYTES) {
+    const lengthHeader = request.headers.get("content-length");
+    if (lengthHeader === null && /chunked/i.test(request.headers.get("transfer-encoding") ?? "")) {
+      return NextResponse.json({ error: "Content-Length wajib" }, { status: 411 });
+    }
+    const length = Number(lengthHeader ?? 0);
+    if (!Number.isFinite(length) || length > MAX_BODY_BYTES) {
       return NextResponse.json({ error: "Data terlalu besar" }, { status: 413 });
     }
     // Endpoint yang memakai cookie sesi: tolak bila dipanggil dari situs lain.

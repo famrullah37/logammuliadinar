@@ -151,7 +151,6 @@ export const MANUAL_CASH_CATEGORIES = {
     sewa: "Sewa",
     pembelian_stok: "Pembelian stok",
     prive: "Pengambilan pemilik",
-    zakat: "Zakat",
     lainnya_keluar: "Pengeluaran lain",
   },
 } as const;
@@ -160,6 +159,8 @@ export const CASH_CATEGORY_LABELS: Record<string, string> = {
   penjualan: "Penjualan",
   buyback: "Buyback",
   koreksi: "Koreksi (pembatalan)",
+  // Zakat dicatat otomatis dari menu Zakat (ta'jil / haul), tidak lewat input manual.
+  zakat: "Zakat",
   ...MANUAL_CASH_CATEGORIES.in,
   ...MANUAL_CASH_CATEGORIES.out,
 };

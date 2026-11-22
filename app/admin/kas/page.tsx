@@ -37,11 +37,10 @@ const MANUAL = {
     sewa: "Sewa",
     pembelian_stok: "Pembelian stok",
     prive: "Pengambilan pemilik",
-    zakat: "Zakat",
     lainnya_keluar: "Pengeluaran lain",
   },
 } as const;
-const LABELS: Record<string, string> = { penjualan: "Penjualan", buyback: "Buyback", koreksi: "Koreksi (pembatalan)", ...MANUAL.in, ...MANUAL.out };
+const LABELS: Record<string, string> = { penjualan: "Penjualan", buyback: "Buyback", koreksi: "Koreksi (pembatalan)", zakat: "Zakat", ...MANUAL.in, ...MANUAL.out };
 
 const formatRupiah = (v: number) => `Rp ${Math.round(v).toLocaleString("id-ID")}`;
 const formatDate = (d: string) => new Date(`${d}T00:00:00`).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
