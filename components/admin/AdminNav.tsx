@@ -7,6 +7,7 @@ import { versionLabel } from "@/lib/version";
 const LINKS = [
   { href: "/admin", label: "Produk & Harga" },
   { href: "/admin/harga", label: "Harga Harian" },
+  { href: "/admin/toko", label: "Transaksi Toko" },
   { href: "/admin/orders", label: "Pesanan" },
   { href: "/admin/buyback", label: "Buyback" },
   { href: "/admin/stok", label: "Stok" },

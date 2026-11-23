@@ -62,7 +62,8 @@ export interface PriceTableRow {
 
 export type OrderStatus = "pending" | "confirmed" | "completed" | "cancelled";
 export type DeliveryMethod = "pickup" | "delivery";
-export type PaymentMethod = "transfer" | "cod";
+export type PaymentMethod = "transfer" | "cod" | "cash";
+export type Channel = "online" | "store";
 
 export interface Order {
   id: string;
@@ -73,8 +74,9 @@ export interface Order {
   harga_beli: number;
   total_harga: number;
   buyer_name: string;
-  buyer_phone: string;
+  buyer_phone: string | null;
   buyer_email?: string | null;
+  channel?: Channel;
   delivery_method: DeliveryMethod;
   delivery_address?: string | null;
   delivery_city?: string | null;
@@ -125,8 +127,13 @@ export interface BuybackRequest {
   total_estimasi: number;
   total_final?: number | null;
   seller_name: string;
-  seller_phone: string;
+  seller_phone: string | null;
   seller_email?: string | null;
+  channel?: Channel;
+  payout_method?: "cash" | "transfer" | null;
+  seller_bank?: string | null;
+  seller_account_number?: string | null;
+  seller_account_holder?: string | null;
   has_certificate: boolean;
   has_packaging: boolean;
   handover_method: HandoverMethod;

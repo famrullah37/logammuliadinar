@@ -47,38 +47,41 @@ const isActive = (s: TxStatus) => s !== "cancelled";
  * - keluar 'completed' → kas keluar sebagai koreksi
  */
 export function setOrderStatus(id: string, status: TxStatus): Promise<StatusResult | null> {
-  return withTransaction(async (tx: Tx) => {
-    const old = await tx.queryOne<{
-      status: TxStatus; order_number: string; variant_id: string; brand_id: string;
-      quantity: number; total_bayar: number; total_harga: number; delivery_method: string; ongkir: number | null;
-    }>(
-      "SELECT status, order_number, variant_id, brand_id, quantity, total_bayar, total_harga, delivery_method, ongkir FROM orders WHERE id = $1 FOR UPDATE",
-      [id],
-    );
-    if (!old) return null;
+  return withTransaction((tx) => applyOrderStatus(tx, id, status));
+}
 
-    if (old.status !== status) {
-      if (status === "completed" && old.delivery_method === "delivery" && old.ongkir === null) {
-        throw new BusinessError("Isi ongkos kirim terlebih dahulu sebelum menyelesaikan pesanan (isi 0 bila gratis ongkir).");
-      }
-      if (isActive(old.status) !== isActive(status)) {
-        const row = await lockPriceRow(tx, old.variant_id, old.brand_id);
-        await changeStock(tx, row, isActive(status) ? -old.quantity : old.quantity,
-          isActive(status) ? "order" : "order_cancel", old.order_number);
-      }
-      const amount = old.total_bayar;
-      if (status === "completed") {
-        await addAutoCash(tx, "in", amount, "penjualan", `Penjualan ${old.order_number}`, old.order_number);
-      } else if (old.status === "completed") {
-        await addAutoCash(tx, "out", amount, "koreksi", `Koreksi penjualan ${old.order_number} (${status})`, old.order_number);
-      }
-      // Penyisihan zakat 2,5% dari harga jual mengikuti status selesai.
-      if (status === "completed" || old.status === "completed") {
-        await syncZakatReserve(tx, { id, order_number: old.order_number, total_harga: old.total_harga }, status === "completed");
-      }
+/** Versi setOrderStatus di dalam transaksi yang sudah berjalan (dipakai juga oleh transaksi toko). */
+export async function applyOrderStatus(tx: Tx, id: string, status: TxStatus): Promise<StatusResult | null> {
+  const old = await tx.queryOne<{
+    status: TxStatus; order_number: string; variant_id: string; brand_id: string;
+    quantity: number; total_bayar: number; total_harga: number; delivery_method: string; ongkir: number | null;
+  }>(
+    "SELECT status, order_number, variant_id, brand_id, quantity, total_bayar, total_harga, delivery_method, ongkir FROM orders WHERE id = $1 FOR UPDATE",
+    [id],
+  );
+  if (!old) return null;
+
+  if (old.status !== status) {
+    if (status === "completed" && old.delivery_method === "delivery" && old.ongkir === null) {
+      throw new BusinessError("Isi ongkos kirim terlebih dahulu sebelum menyelesaikan pesanan (isi 0 bila gratis ongkir).");
     }
-    return tx.queryOne<StatusResult>(completionUpdate("orders"), [status, id, newToken()]);
-  });
+    if (isActive(old.status) !== isActive(status)) {
+      const row = await lockPriceRow(tx, old.variant_id, old.brand_id);
+      await changeStock(tx, row, isActive(status) ? -old.quantity : old.quantity,
+        isActive(status) ? "order" : "order_cancel", old.order_number);
+    }
+    const amount = old.total_bayar;
+    if (status === "completed") {
+      await addAutoCash(tx, "in", amount, "penjualan", `Penjualan ${old.order_number}`, old.order_number);
+    } else if (old.status === "completed") {
+      await addAutoCash(tx, "out", amount, "koreksi", `Koreksi penjualan ${old.order_number} (${status})`, old.order_number);
+    }
+    // Penyisihan zakat 2,5% dari harga jual mengikuti status selesai.
+    if (status === "completed" || old.status === "completed") {
+      await syncZakatReserve(tx, { id, order_number: old.order_number, total_harga: old.total_harga }, status === "completed");
+    }
+  }
+  return tx.queryOne<StatusResult>(completionUpdate("orders"), [status, id, newToken()]);
 }
 
 /**
@@ -87,32 +90,37 @@ export function setOrderStatus(id: string, status: TxStatus): Promise<StatusResu
  * - keluar 'completed' → stok dikurangi kembali, kas masuk sebagai koreksi
  */
 export function setBuybackStatus(id: string, status: TxStatus, totalFinal?: number): Promise<StatusResult | null> {
-  return withTransaction(async (tx: Tx) => {
-    const old = await tx.queryOne<{
-      status: TxStatus; request_number: string; variant_id: string; brand_id: string;
-      quantity: number; total_estimasi: number; total_final: number | null;
-    }>(
-      "SELECT status, request_number, variant_id, brand_id, quantity, total_estimasi, total_final FROM buyback_requests WHERE id = $1 FOR UPDATE",
-      [id],
-    );
-    if (!old) return null;
+  return withTransaction((tx) => applyBuybackStatus(tx, id, status, totalFinal));
+}
 
-    if (old.status !== status) {
-      if (status === "completed") {
-        const final = totalFinal ?? old.total_final ?? old.total_estimasi;
-        await tx.query("UPDATE buyback_requests SET total_final = $1 WHERE id = $2", [final, id]);
-        const row = await lockPriceRow(tx, old.variant_id, old.brand_id);
-        await changeStock(tx, row, old.quantity, "buyback", old.request_number, null, final / old.quantity);
-        await addAutoCash(tx, "out", final, "buyback", `Buyback ${old.request_number}`, old.request_number);
-      } else if (old.status === "completed") {
-        const final = old.total_final ?? old.total_estimasi;
-        const row = await lockPriceRow(tx, old.variant_id, old.brand_id);
-        await changeStock(tx, row, -old.quantity, "buyback_cancel", old.request_number);
-        await addAutoCash(tx, "in", final, "koreksi", `Koreksi buyback ${old.request_number} (${status})`, old.request_number);
-      }
+/** Versi setBuybackStatus di dalam transaksi yang sudah berjalan (dipakai juga oleh transaksi toko). */
+export async function applyBuybackStatus(
+  tx: Tx, id: string, status: TxStatus, totalFinal?: number,
+): Promise<StatusResult | null> {
+  const old = await tx.queryOne<{
+    status: TxStatus; request_number: string; variant_id: string; brand_id: string;
+    quantity: number; total_estimasi: number; total_final: number | null;
+  }>(
+    "SELECT status, request_number, variant_id, brand_id, quantity, total_estimasi, total_final FROM buyback_requests WHERE id = $1 FOR UPDATE",
+    [id],
+  );
+  if (!old) return null;
+
+  if (old.status !== status) {
+    if (status === "completed") {
+      const final = totalFinal ?? old.total_final ?? old.total_estimasi;
+      await tx.query("UPDATE buyback_requests SET total_final = $1 WHERE id = $2", [final, id]);
+      const row = await lockPriceRow(tx, old.variant_id, old.brand_id);
+      await changeStock(tx, row, old.quantity, "buyback", old.request_number, null, final / old.quantity);
+      await addAutoCash(tx, "out", final, "buyback", `Buyback ${old.request_number}`, old.request_number);
+    } else if (old.status === "completed") {
+      const final = old.total_final ?? old.total_estimasi;
+      const row = await lockPriceRow(tx, old.variant_id, old.brand_id);
+      await changeStock(tx, row, -old.quantity, "buyback_cancel", old.request_number);
+      await addAutoCash(tx, "in", final, "koreksi", `Koreksi buyback ${old.request_number} (${status})`, old.request_number);
     }
-    return tx.queryOne<StatusResult>(completionUpdate("buyback_requests"), [status, id, newToken()]);
-  });
+  }
+  return tx.queryOne<StatusResult>(completionUpdate("buyback_requests"), [status, id, newToken()]);
 }
 
 // ── Data nota ──────────────────────────────────────────────────────
@@ -123,7 +131,8 @@ interface ReceiptBase {
   created_at: string;
   reference: string; // nomor pesanan / nomor pengajuan
   customer_name: string;
-  customer_phone: string;
+  customer_phone: string | null;
+  channel: "online" | "store";
   customer_email: string | null;
   product_name: string;
   type_name: string;
@@ -142,7 +151,7 @@ export type Receipt =
       kode_unik: number | null;
       ongkir: number | null;
       total_bayar: number;
-      payment_method: "transfer" | "cod";
+      payment_method: "transfer" | "cod" | "cash";
       delivery_method: "pickup" | "delivery";
       delivery_address: string | null;
       delivery_city: string | null;
@@ -153,6 +162,10 @@ export type Receipt =
       handover_method: "store" | "shipping";
       has_certificate: boolean;
       has_packaging: boolean;
+      payout_method: "cash" | "transfer" | null;
+      seller_bank: string | null;
+      seller_account_number: string | null;
+      seller_account_holder: string | null;
     });
 
 export async function getReceiptByToken(token: string): Promise<Receipt | null> {
@@ -161,7 +174,7 @@ export async function getReceiptByToken(token: string): Promise<Receipt | null> 
   const order = await queryOne<Receipt>(
     `SELECT 'order' AS kind, o.invoice_number AS receipt_number, o.status, o.completed_at, o.created_at,
             o.order_number AS reference, o.buyer_name AS customer_name, o.buyer_phone AS customer_phone,
-            o.buyer_email AS customer_email, p.name AS product_name, v.type_name, v.weight, v.purity,
+            o.buyer_email AS customer_email, o.channel, p.name AS product_name, v.type_name, v.weight, v.purity,
             b.name AS brand_name, o.quantity, o.harga_beli AS unit_price, o.total_harga AS total, o.notes,
             o.kode_unik, o.ongkir, o.total_bayar, o.payment_method, o.delivery_method, o.delivery_address, o.delivery_city, o.delivery_postal_code
        FROM orders o
@@ -176,9 +189,10 @@ export async function getReceiptByToken(token: string): Promise<Receipt | null> 
   return queryOne<Receipt>(
     `SELECT 'buyback' AS kind, r.receipt_number, r.status, r.completed_at, r.created_at,
             r.request_number AS reference, r.seller_name AS customer_name, r.seller_phone AS customer_phone,
-            r.seller_email AS customer_email, p.name AS product_name, v.type_name, v.weight, v.purity,
+            r.seller_email AS customer_email, r.channel, p.name AS product_name, v.type_name, v.weight, v.purity,
             b.name AS brand_name, r.quantity, r.harga_buyback AS unit_price, COALESCE(r.total_final, r.total_estimasi) AS total, r.notes,
-            r.handover_method, r.has_certificate, r.has_packaging
+            r.handover_method, r.has_certificate, r.has_packaging,
+            r.payout_method, r.seller_bank, r.seller_account_number, r.seller_account_holder
        FROM buyback_requests r
        JOIN product_variants v ON v.id = r.variant_id
        JOIN products p ON p.id = v.product_id

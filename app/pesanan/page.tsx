@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import type { Order } from "@/lib/types";
+import { paymentLabel } from "@/lib/labels";
 
 const formatRupiah = (v: number) => `Rp ${v.toLocaleString("id-ID")}`;
 
@@ -129,7 +130,7 @@ function PesananContent() {
               </div>
               <div className="bg-[#f7f4ed] rounded-lg p-3">
                 <p className="text-gray-500 text-xs">Pembayaran</p>
-                <p className="font-semibold text-gray-900">{order.payment_method === "transfer" ? "Transfer Bank" : "COD"}</p>
+                <p className="font-semibold text-gray-900">{paymentLabel(order.payment_method)}</p>
               </div>
             </div>
 

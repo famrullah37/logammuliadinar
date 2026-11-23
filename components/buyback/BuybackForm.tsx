@@ -50,6 +50,9 @@ export default function BuybackForm({
     has_packaging: true,
     handover_method: "store" as "store" | "shipping",
     notes: "",
+    seller_bank: "",
+    seller_account_number: "",
+    seller_account_holder: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -178,6 +181,17 @@ export default function BuybackForm({
           <span className="mb-1.5 block text-sm font-semibold text-gray-700">Email <span className="font-normal text-gray-400">(opsional)</span></span>
           <input className={inputCls} type="email" value={form.seller_email} onChange={(e) => setForm((f) => ({ ...f, seller_email: e.target.value }))} />
         </label>
+        <fieldset className="sm:col-span-2 grid gap-4 sm:grid-cols-3">
+          <legend className="mb-1.5 text-sm font-semibold text-gray-700">
+            Rekening untuk pembayaran <span className="font-normal text-gray-400">(opsional — kosongkan bila ingin tunai di toko)</span>
+          </legend>
+          <input className={inputCls} aria-label="Bank" placeholder="Bank (mis. BSI)" maxLength={50} value={form.seller_bank}
+            onChange={(e) => setForm((f) => ({ ...f, seller_bank: e.target.value }))} />
+          <input className={inputCls} aria-label="Nomor rekening" placeholder="Nomor rekening" inputMode="numeric" maxLength={30} value={form.seller_account_number}
+            onChange={(e) => setForm((f) => ({ ...f, seller_account_number: e.target.value }))} />
+          <input className={inputCls} aria-label="Atas nama" placeholder="Atas nama" maxLength={120} value={form.seller_account_holder}
+            onChange={(e) => setForm((f) => ({ ...f, seller_account_holder: e.target.value }))} />
+        </fieldset>
         <label className="block sm:col-span-2">
           <span className="mb-1.5 block text-sm font-semibold text-gray-700">Catatan <span className="font-normal text-gray-400">(opsional — kondisi barang, dll.)</span></span>
           <textarea className={`${inputCls} resize-y`} rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} maxLength={2000} />

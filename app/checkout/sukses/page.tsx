@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { BANK_ACCOUNTS } from "@/lib/site";
 import type { Order } from "@/lib/types";
 
 const formatRupiah = (v: number) => `Rp ${v.toLocaleString("id-ID")}`;
@@ -26,6 +25,13 @@ function SuksesContent() {
   const phone = searchParams.get("phone") ?? "";
   const [order, setOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
+  const [accounts, setAccounts] = useState<{ bank: string; account_number: string; holder: string }[]>([]);
+
+  useEffect(() => {
+    api<{ bank: string; account_number: string; holder: string }[]>("/api/bank-accounts")
+      .then(setAccounts)
+      .catch(() => setAccounts([]));
+  }, []);
 
   useEffect(() => {
     if (!orderNumber || !phone) return;
@@ -98,13 +104,13 @@ function SuksesContent() {
             >
               {copied ? "Tersalin ✓" : "Salin nominal"}
             </button>
-            {BANK_ACCOUNTS.length > 0 ? (
+            {accounts.length > 0 ? (
               <div className="space-y-2 border-t border-[#f2ece0] pt-3 text-left text-sm">
-                {BANK_ACCOUNTS.map((a) => (
-                  <div key={a.number} className="flex justify-between gap-3">
+                {accounts.map((a) => (
+                  <div key={`${a.bank}-${a.account_number}`} className="flex justify-between gap-3">
                     <span className="text-gray-500">{a.bank}</span>
                     <span className="text-right">
-                      <span className="block font-mono font-semibold text-gray-900">{a.number}</span>
+                      <span className="block font-mono font-semibold text-gray-900">{a.account_number}</span>
                       <span className="block text-xs text-gray-500">a.n. {a.holder}</span>
                     </span>
                   </div>

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import type { Order, OrderStatus } from "@/lib/types";
 import toast from "react-hot-toast";
+import { paymentLabel } from "@/lib/labels";
 
 const formatRupiah = (v: number) => `Rp ${v.toLocaleString("id-ID")}`;
 
@@ -183,6 +184,9 @@ export default function AdminOrdersPage() {
                     <div>
                       <p className="text-xs text-gray-400 font-mono">
                         {order.order_number}
+                        {order.channel === "store" && (
+                          <span className="ml-2 rounded bg-[#ce9233]/15 px-1.5 py-0.5 font-sans font-semibold text-[#b87f2d]">Toko</span>
+                        )}
                         {order.invoice_number && <span className="ml-2 text-[#1c424f]">· Nota {order.invoice_number}</span>}
                       </p>
                       <p className="font-bold text-gray-900 mt-0.5">
@@ -199,7 +203,7 @@ export default function AdminOrdersPage() {
                     <div>
                       <p className="text-xs text-gray-400">Pembeli</p>
                       <p className="font-semibold text-gray-800">{order.buyer_name}</p>
-                      <p className="text-gray-500">{order.buyer_phone}</p>
+                      <p className="text-gray-500">{order.buyer_phone || "—"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400">Total bayar</p>
@@ -220,14 +224,14 @@ export default function AdminOrdersPage() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-400">Pengiriman</p>
-                      <p className="text-gray-800">{order.delivery_method === "pickup" ? "Ambil Sendiri" : "Dikirim"}</p>
+                      <p className="text-gray-800">{order.channel === "store" ? "Langsung di toko" : order.delivery_method === "pickup" ? "Ambil Sendiri" : "Dikirim"}</p>
                       {order.delivery_method === "delivery" && (
                         <p className="text-xs text-gray-500">{order.delivery_city}</p>
                       )}
                     </div>
                     <div>
                       <p className="text-xs text-gray-400">Pembayaran</p>
-                      <p className="text-gray-800">{order.payment_method === "transfer" ? "Transfer Bank" : "COD"}</p>
+                      <p className="text-gray-800">{paymentLabel(order.payment_method)}</p>
                     </div>
                   </div>
 
@@ -256,7 +260,7 @@ export default function AdminOrdersPage() {
                           {order.ongkir === null || order.ongkir === undefined ? "Isi ongkir" : "Ubah ongkir"}
                         </button>
                       )}
-                      {order.status !== "completed" && order.status !== "cancelled" &&
+                      {order.buyer_phone && order.status !== "completed" && order.status !== "cancelled" &&
                         !(order.delivery_method === "delivery" && (order.ongkir === null || order.ongkir === undefined)) && (
                         <a
                           href={waLink(order.buyer_phone, billMessage(order))}
@@ -273,20 +277,24 @@ export default function AdminOrdersPage() {
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1c424f] hover:bg-[#15323c] text-white transition">
                             Lihat nota
                           </a>
-                          <a
-                            href={waLink(order.buyer_phone, `Assalamu'alaikum ${order.buyer_name}, terima kasih telah berbelanja di Logam Mulia Dinar. Berikut nota pembelian ${order.invoice_number}: ${window.location.origin}/nota/${order.receipt_token}`)}
-                            target="_blank" rel="noopener noreferrer"
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition">
-                            Kirim nota via WA
-                          </a>
+                          {order.buyer_phone && (
+                            <a
+                              href={waLink(order.buyer_phone, `Assalamu'alaikum ${order.buyer_name}, terima kasih telah berbelanja di Logam Mulia Dinar. Berikut nota pembelian ${order.invoice_number}: ${window.location.origin}/nota/${order.receipt_token}`)}
+                              target="_blank" rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition">
+                              Kirim nota via WA
+                            </a>
+                          )}
                         </>
                       )}
-                      <a
-                        href={waLink(order.buyer_phone)}
-                        target="_blank" rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-600 text-white transition">
-                        WhatsApp
-                      </a>
+                      {order.buyer_phone && (
+                        <a
+                          href={waLink(order.buyer_phone)}
+                          target="_blank" rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-600 text-white transition">
+                          WhatsApp
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>

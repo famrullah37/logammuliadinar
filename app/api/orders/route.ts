@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   if (!["pickup", "delivery"].includes(delivery_method)) {
     return NextResponse.json({ error: "Metode pengiriman tidak valid" }, { status: 400 });
   }
-  if (!["transfer", "cod"].includes(payment_method)) {
+  if (payment_method !== "transfer" && payment_method !== "cod") {
     return NextResponse.json({ error: "Metode pembayaran tidak valid" }, { status: 400 });
   }
   const isDelivery = delivery_method === "delivery";

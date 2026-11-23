@@ -40,6 +40,15 @@ export const RESOURCES: Record<string, Resource> = {
       { name: "description", kind: "text", optional: true, maxLength: 5000 },
     ],
   },
+  // Rekening tujuan transfer toko (tampil ke pembeli).
+  bank_accounts: {
+    table: "bank_accounts",
+    fields: [
+      { name: "bank", kind: "text", maxLength: 50 },
+      { name: "account_number", kind: "text", maxLength: 30 },
+      { name: "holder", kind: "text", maxLength: 120 },
+    ],
+  },
 };
 
 /** Ambil konfigurasi resource dari whitelist; abaikan properti bawaan objek (constructor, __proto__, ...). */

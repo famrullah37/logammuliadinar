@@ -7,6 +7,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { api, ApiError } from "@/lib/api";
 import type { BuybackRequest, OrderStatus } from "@/lib/types";
+import { formatAccount } from "@/lib/labels";
 
 const formatRupiah = (v: number) => `Rp ${v.toLocaleString("id-ID")}`;
 
@@ -138,6 +139,9 @@ export default function AdminBuybackPage() {
                     <div>
                       <p className="text-xs text-gray-400 font-mono">
                         {x.request_number}
+                        {x.channel === "store" && (
+                          <span className="ml-2 rounded bg-[#ce9233]/15 px-1.5 py-0.5 font-sans font-semibold text-[#b87f2d]">Toko</span>
+                        )}
                         {x.receipt_number && <span className="ml-2 text-[#1c424f]">· Nota {x.receipt_number}</span>}
                       </p>
                       <p className="font-bold text-gray-900 mt-0.5">
@@ -154,7 +158,7 @@ export default function AdminBuybackPage() {
                     <div>
                       <p className="text-xs text-gray-400">Pelanggan</p>
                       <p className="font-semibold text-gray-800">{x.seller_name}</p>
-                      <p className="text-gray-500">{x.seller_phone}</p>
+                      <p className="text-gray-500">{x.seller_phone || "—"}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400">{x.total_final ? "Nilai final" : "Estimasi nilai"}</p>
@@ -172,9 +176,18 @@ export default function AdminBuybackPage() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-400">Cara serah</p>
-                      <p className="text-gray-800">{x.handover_method === "store" ? "Datang ke toko" : "Kirim ke toko"}</p>
+                      <p className="text-gray-800">{x.channel === "store" ? "Langsung di toko" : x.handover_method === "store" ? "Datang ke toko" : "Kirim ke toko"}</p>
                     </div>
                   </div>
+
+                  {(x.seller_bank || x.payout_method === "cash") && (
+                    <p className="text-sm text-gray-700 bg-[#f7f4ed] rounded-lg px-3 py-2 mb-4">
+                      <span className="text-xs text-gray-500">Pembayaran ke penjual: </span>
+                      {x.seller_bank && x.seller_account_number && x.seller_account_holder
+                        ? <>Transfer ke <span className="font-mono font-semibold">{formatAccount(x.seller_bank, x.seller_account_number, x.seller_account_holder)}</span></>
+                        : "Tunai"}
+                    </p>
+                  )}
 
                   {x.notes && (
                     <p className="text-xs text-gray-500 bg-[#f7f4ed] rounded-lg px-3 py-2 mb-4">Catatan: {x.notes}</p>
@@ -195,18 +208,22 @@ export default function AdminBuybackPage() {
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1c424f] hover:bg-[#15323c] text-white transition">
                             Lihat nota
                           </a>
-                          <a
-                            href={waLink(x.seller_phone, `Assalamu'alaikum ${x.seller_name}, terima kasih atas transaksi buyback di Logam Mulia Dinar. Berikut nota buyback ${x.receipt_number}: ${window.location.origin}/nota/${x.receipt_token}`)}
-                            target="_blank" rel="noopener noreferrer"
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition">
-                            Kirim nota via WA
-                          </a>
+                          {x.seller_phone && (
+                            <a
+                              href={waLink(x.seller_phone, `Assalamu'alaikum ${x.seller_name}, terima kasih atas transaksi buyback di Logam Mulia Dinar. Berikut nota buyback ${x.receipt_number}: ${window.location.origin}/nota/${x.receipt_token}`)}
+                              target="_blank" rel="noopener noreferrer"
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-600 hover:bg-green-700 text-white transition">
+                              Kirim nota via WA
+                            </a>
+                          )}
                         </>
                       )}
-                      <a href={waLink(x.seller_phone)} target="_blank" rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-600 text-white transition">
-                        WhatsApp
-                      </a>
+                      {x.seller_phone && (
+                        <a href={waLink(x.seller_phone)} target="_blank" rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-500 hover:bg-green-600 text-white transition">
+                          WhatsApp
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>

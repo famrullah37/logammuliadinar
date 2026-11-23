@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { MessageCircle } from "lucide-react";
 import PrintButton from "@/components/receipt/PrintButton";
 import { getReceiptByToken } from "@/lib/receipts";
+import { formatAccount, paymentLabel } from "@/lib/labels";
 import { SITE, whatsappLink } from "@/lib/site";
 
 type Props = { params: Promise<{ token: string }> };
@@ -27,7 +28,8 @@ const formatDate = (iso: string) =>
   }) + " WIB";
 
 /** 081233272733 → 0812****2733 (link nota bisa diteruskan; jangan tampilkan nomor utuh). */
-const maskPhone = (p: string) => {
+const maskPhone = (p: string | null) => {
+  if (!p) return "";
   const d = p.replace(/\s/g, "");
   return d.length <= 8 ? d : `${d.slice(0, 4)}${"*".repeat(d.length - 8)}${d.slice(-4)}`;
 };
@@ -42,16 +44,21 @@ export default async function NotaPage({ params }: Props) {
 
   const details: [string, string][] = isOrder
     ? [
-        ["Pembayaran", r.payment_method === "transfer" ? "Transfer bank" : "COD (bayar di tempat)"],
-        ["Pengiriman", r.delivery_method === "pickup" ? "Ambil di toko" : "Dikirim"],
+        ["Pembayaran", paymentLabel(r.payment_method)],
+        ["Pengiriman", r.channel === "store" ? "Pembelian langsung di toko" : r.delivery_method === "pickup" ? "Ambil di toko" : "Dikirim"],
         ...(r.delivery_method === "delivery"
           ? ([["Alamat", [r.delivery_address, r.delivery_city, r.delivery_postal_code].filter(Boolean).join(", ")]] as [string, string][])
           : []),
       ]
     : [
-        ["Cara serah", r.handover_method === "store" ? "Datang ke toko" : "Dikirim ke toko"],
+        ["Cara serah", r.channel === "store" ? "Langsung di toko" : r.handover_method === "store" ? "Datang ke toko" : "Dikirim ke toko"],
         ["Kelengkapan", [r.has_certificate ? "Sertifikat" : null, r.has_packaging ? "Kemasan" : null].filter(Boolean).join(" & ") || "Tanpa sertifikat/kemasan"],
-        ["Pembayaran ke pelanggan", "Sesuai kesepakatan dengan admin"],
+        [
+          "Pembayaran ke pelanggan",
+          r.seller_bank && r.seller_account_number && r.seller_account_holder
+            ? `Transfer ke ${formatAccount(r.seller_bank, r.seller_account_number, r.seller_account_holder, true)}`
+            : r.payout_method === "cash" ? "Tunai" : "Sesuai kesepakatan dengan admin",
+        ],
       ];
 
   return (

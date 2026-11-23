@@ -16,6 +16,9 @@ interface BuybackPayload {
   has_packaging?: boolean;
   handover_method?: string;
   notes?: string;
+  seller_bank?: string;
+  seller_account_number?: string;
+  seller_account_holder?: string;
 }
 
 function generateRequestNumber(): string {
@@ -56,7 +59,23 @@ export async function POST(req: NextRequest) {
   if (body.seller_email?.trim() && !isValidEmail(body.seller_email.trim())) {
     return NextResponse.json({ error: "Email tidak valid" }, { status: 400 });
   }
-  const lengthError = tooLong([["Nama", seller_name, LIMITS.name], ["Catatan", body.notes, LIMITS.notes]]);
+  // Rekening penjual (opsional): diisi lengkap atau dikosongkan semua.
+  const bank = body.seller_bank?.trim() ?? "";
+  const accountNumber = (body.seller_account_number ?? "").replace(/[\s-]/g, "");
+  const holder = body.seller_account_holder?.trim() ?? "";
+  const anyAccount = !!(bank || accountNumber || holder);
+  if (anyAccount && (!bank || !accountNumber || !holder)) {
+    return NextResponse.json({ error: "Lengkapi bank, nomor rekening, dan nama pemilik rekening (atau kosongkan semua)" }, { status: 400 });
+  }
+  if (anyAccount && !/^\d{5,30}$/.test(accountNumber)) {
+    return NextResponse.json({ error: "Nomor rekening hanya angka (5–30 digit)" }, { status: 400 });
+  }
+  const lengthError = tooLong([
+    ["Nama", seller_name, LIMITS.name],
+    ["Catatan", body.notes, LIMITS.notes],
+    ["Bank", bank, 50],
+    ["Nama pemilik rekening", holder, LIMITS.name],
+  ]);
   if (lengthError) return NextResponse.json({ error: lengthError }, { status: 400 });
 
   // Dihitung setelah validasi agar salah isi form tidak menghabiskan jatah.
@@ -85,6 +104,10 @@ export async function POST(req: NextRequest) {
       body.has_packaging === true,
       handover_method,
       body.notes?.trim() || null,
+      anyAccount ? "transfer" : null,
+      anyAccount ? bank : null,
+      anyAccount ? accountNumber : null,
+      anyAccount ? holder : null,
     ];
 
     for (let attempt = 1; ; attempt++) {
@@ -93,8 +116,8 @@ export async function POST(req: NextRequest) {
           `INSERT INTO buyback_requests (
              request_number, variant_id, brand_id, quantity, harga_buyback, total_estimasi,
              seller_name, seller_phone, seller_email, has_certificate, has_packaging,
-             handover_method, notes
-           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+             handover_method, notes, payout_method, seller_bank, seller_account_number, seller_account_holder
+           ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
            RETURNING request_number, harga_buyback, total_estimasi, quantity, status`,
           [generateRequestNumber(), ...values],
         );
