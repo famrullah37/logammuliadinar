@@ -57,6 +57,11 @@ const LOT_SOURCE: Record<string, string> = {
 
 type EditMode = "set" | "adjust" | "purchase";
 
+// 1 dinar emas = 4,25 gram (standar dinar syar'i).
+const GRAM_PER_DINAR = 4.25;
+const isDinar = (productName: string) => /dinar/i.test(productName);
+const formatNum = (v: number, maxFrac: number) => v.toLocaleString("id-ID", { maximumFractionDigits: maxFrac });
+
 const formatRupiah = (v: number) => `Rp ${v.toLocaleString("id-ID")}`;
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -98,7 +103,15 @@ export default function AdminStockPage() {
   }, [rows, filter]);
 
   const tracked = rows.filter((r) => r.stock !== null);
-  const totalUnits = tracked.reduce((s, r) => s + (r.stock ?? 0), 0);
+  // Ringkasan fisik: dinar dalam satuan dinar, emas batangan dalam gram.
+  const sumBy = (list: StockRow[], f: (r: StockRow) => number) => list.reduce((s, r) => s + f(r), 0);
+  const gramsOf = (r: StockRow) => (r.stock ?? 0) * Number(r.weight);
+  const dinarRows = tracked.filter((r) => isDinar(r.product_name));
+  const barRows = tracked.filter((r) => !isDinar(r.product_name));
+  const dinarGram = sumBy(dinarRows, gramsOf);
+  const barGram = sumBy(barRows, gramsOf);
+  const dinarPcs = sumBy(dinarRows, (r) => r.stock ?? 0);
+  const barPcs = sumBy(barRows, (r) => r.stock ?? 0);
   const totalValue = tracked.reduce((s, r) => s + Number(r.nilai_modal ?? 0), 0);
   const outOfStock = tracked.filter((r) => r.stock === 0).length;
 
@@ -183,16 +196,21 @@ export default function AdminStockPage() {
       <AdminNav />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            ["Dilacak", `${tracked.length} dari ${rows.length}`],
-            ["Total keping", totalUnits.toLocaleString("id-ID")],
+            ["Stok dinar", `${formatNum(dinarGram / GRAM_PER_DINAR, 4)} dinar`,
+              `${formatNum(dinarPcs, 0)} keping · ${formatNum(dinarGram, 4)} gram`],
+            ["Stok emas batangan", `${formatNum(barGram, 3)} gram`, `${formatNum(barPcs, 0)} keping`],
+            ["Total emas", `${formatNum(dinarGram + barGram, 3)} gram`,
+              `setara ${formatNum((dinarGram + barGram) / GRAM_PER_DINAR, 2)} dinar`],
             ["Nilai stok (modal FIFO)", formatRupiah(totalValue)],
+            ["Dilacak", `${tracked.length} dari ${rows.length}`],
             ["Stok habis", String(outOfStock)],
-          ].map(([k, v]) => (
+          ].map(([k, v, sub]) => (
             <div key={k} className="bg-white rounded-2xl border border-[#908974]/30 p-4">
               <p className="text-xs text-gray-500">{k}</p>
               <p className="mt-1 text-lg font-bold text-[#1c424f] tabular-nums">{v}</p>
+              {sub && <p className="text-xs text-gray-500 tabular-nums">{sub}</p>}
             </div>
           ))}
         </div>
@@ -296,7 +314,14 @@ export default function AdminStockPage() {
                         ) : r.stock === 0 ? (
                           <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-700">Habis</span>
                         ) : (
-                          <span className={`font-bold ${r.stock <= 5 ? "text-amber-600" : "text-gray-900"}`}>{r.stock}</span>
+                          <>
+                            <span className={`font-bold ${r.stock <= 5 ? "text-amber-600" : "text-gray-900"}`}>{r.stock} keping</span>
+                            <span className="block text-xs text-gray-500">
+                              {isDinar(r.product_name)
+                                ? `${formatNum(gramsOf(r) / GRAM_PER_DINAR, 4)} dinar · ${formatNum(gramsOf(r), 4)} g`
+                                : `${formatNum(gramsOf(r), 3)} gram`}
+                            </span>
+                          </>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-gray-700">
