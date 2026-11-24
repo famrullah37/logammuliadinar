@@ -8,6 +8,7 @@ import PasswordInput from "@/components/PasswordInput";
 import UserManager from "@/components/admin/UserManager";
 import { ROLE_LABEL, useMe } from "@/components/admin/useMe";
 import { api, ApiError } from "@/lib/api";
+import { versionLabel } from "@/lib/version";
 
 const inputCls =
   "w-full px-4 py-3 border border-[#908974]/40 rounded-xl bg-white focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/20";
@@ -42,7 +43,7 @@ export default function AdminAccountPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <h1 className="text-2xl font-bold text-gray-900">Akun <span className="text-[#1c424f]">& Pengguna</span></h1>
           <p className="text-sm text-gray-500">
-            {me ? <>{me.email} · {ROLE_LABEL[me.role]}</> : "Ganti password login."}
+            {me ? <>{me.email} · {ROLE_LABEL[me.role]} · aplikasi {versionLabel()}</> : "Ganti password login."}
           </p>
         </div>
       </header>

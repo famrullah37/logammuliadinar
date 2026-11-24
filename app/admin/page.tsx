@@ -3,7 +3,6 @@
 import AdminNav from "@/components/admin/AdminNav";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import type { Brand, Price, ProductMaster, ProductVariant } from "@/lib/types";
 import toast from "react-hot-toast";
@@ -95,7 +94,7 @@ export default function AdminPage() {
     [router],
   );
 
-  // Naikkan reloadKey untuk memuat ulang data (tombol Refresh).
+  // Naikkan reloadKey untuk memuat ulang data (tombol Muat ulang).
   const [reloadKey, setReloadKey] = useState(0);
 
   // ── muat data ────────────────────────────────────────────────────
@@ -118,11 +117,6 @@ export default function AdminPage() {
       });
     return () => { ignore = true; };
   }, [handleError, reloadKey]);
-
-  const logout = async () => {
-    await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
-    router.push("/login");
-  };
 
   /** Simpan (tambah/ubah) satu resource admin. */
   const save = (resource: string, id: string | null, payload: Record<string, unknown>) =>
@@ -279,35 +273,10 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f4ed]">
-      {/* Header */}
-      <header className="bg-white border-b border-[#908974]/30 shadow-sm sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Admin <span className="text-[#1c424f]">Logam Mulia Dinar</span>
-            </h1>
-            <p className="text-sm text-gray-500">Kelola brand, produk, varian, harga, dan pesanan</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/admin/orders"
-              className="bg-[#1c424f] hover:bg-[#15323c] text-white px-4 py-2 rounded-lg text-sm font-semibold transition"
-            >
-              Pesanan
-            </Link>
-            <Link
-              href="/admin/buyback"
-              className="bg-white border border-[#1c424f]/30 hover:bg-[#f7f4ed] text-[#1c424f] px-4 py-2 rounded-lg text-sm font-semibold transition"
-            >
-              Buyback
-            </Link>
-            <button
-              onClick={logout}
-              className="bg-[#ce9233] hover:bg-[#b87f2d] text-white px-5 py-2 rounded-lg font-semibold transition"
-            >
-              Logout
-            </button>
-          </div>
+      <header className="bg-white border-b border-[#908974]/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <h1 className="text-2xl font-bold text-gray-900">Produk <span className="text-[#1c424f]">& Harga</span></h1>
+          <p className="text-sm text-gray-500">Kelola brand, produk (kategori), varian (pecahan), dan harga brand × varian.</p>
         </div>
       </header>
       <AdminNav />
@@ -317,7 +286,7 @@ export default function AdminPage() {
         {/* ── Harga Form ── */}
         <section className="bg-white rounded-2xl border border-[#908974]/30 shadow-sm p-5 sm:p-7">
           <h2 className="text-xl font-bold text-gray-900 mb-5">
-            {editingPriceId ? "Edit Data Harga" : "Tambah Data Harga"}
+            {editingPriceId ? "Ubah Data Harga" : "Tambah Data Harga"}
           </h2>
           <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={submitPriceForm}>
             <div>
@@ -420,7 +389,7 @@ export default function AdminPage() {
           {/* Brand */}
           <div className="bg-white rounded-2xl border border-[#908974]/30 shadow-sm p-5 sm:p-7">
             <h2 className="text-xl font-bold text-gray-900 mb-5">
-              {editingBrandId ? "Edit Brand" : "Tambah Brand"}
+              {editingBrandId ? "Ubah Brand" : "Tambah Brand"}
             </h2>
             <form className="space-y-3" onSubmit={submitBrandForm}>
               <input
@@ -451,7 +420,7 @@ export default function AdminPage() {
                     <span className="text-sm font-semibold text-gray-800">{b.name}</span>
                     <div className="flex gap-2">
                       <button onClick={() => { setEditingBrandId(b.id); setBrandForm({ name: b.name }); }}
-                        className="px-2.5 py-1 rounded bg-[#1c424f] text-white text-xs font-semibold hover:bg-[#15323c] transition">Edit</button>
+                        className="px-2.5 py-1 rounded bg-[#1c424f] text-white text-xs font-semibold hover:bg-[#15323c] transition">Ubah</button>
                       <button onClick={() => deleteBrand(b.id)}
                         className="px-2.5 py-1 rounded border border-red-300 text-red-600 text-xs font-semibold hover:bg-red-50 transition">Hapus</button>
                     </div>
@@ -463,7 +432,7 @@ export default function AdminPage() {
           {/* Product master */}
           <div className="bg-white rounded-2xl border border-[#908974]/30 shadow-sm p-5 sm:p-7">
             <h2 className="text-xl font-bold text-gray-900 mb-5">
-              {editingProductId ? "Edit Produk" : "Tambah Produk"}
+              {editingProductId ? "Ubah Produk" : "Tambah Produk"}
             </h2>
             <form className="space-y-3" onSubmit={submitProductForm}>
               <input
@@ -494,7 +463,7 @@ export default function AdminPage() {
                     <span className="text-sm font-semibold text-gray-800">{p.name}</span>
                     <div className="flex gap-2">
                       <button onClick={() => { setEditingProductId(p.id); setProductForm({ name: p.name }); }}
-                        className="px-2.5 py-1 rounded bg-[#1c424f] text-white text-xs font-semibold hover:bg-[#15323c] transition">Edit</button>
+                        className="px-2.5 py-1 rounded bg-[#1c424f] text-white text-xs font-semibold hover:bg-[#15323c] transition">Ubah</button>
                       <button onClick={() => deleteProduct(p.id)}
                         className="px-2.5 py-1 rounded border border-red-300 text-red-600 text-xs font-semibold hover:bg-red-50 transition">Hapus</button>
                     </div>
@@ -507,7 +476,7 @@ export default function AdminPage() {
         {/* ── Variant management ── */}
         <section className="bg-white rounded-2xl border border-[#908974]/30 shadow-sm p-5 sm:p-7">
           <h2 className="text-xl font-bold text-gray-900 mb-5">
-            {editingVariantId ? "Edit Varian Produk" : "Tambah Varian Produk"}
+            {editingVariantId ? "Ubah Varian Produk" : "Tambah Varian Produk"}
           </h2>
           <form className="grid grid-cols-1 md:grid-cols-3 gap-4" onSubmit={submitVariantForm}>
             <div>
@@ -625,7 +594,7 @@ export default function AdminPage() {
                             <div className="flex justify-center gap-2">
                               <button
                                 onClick={() => { setEditingVariantId(v.id); setVariantForm({ product_id: v.product_id, type_name: v.type_name, weight: String(v.weight), purity: v.purity ?? "999.9", image_url: v.image_url ?? "", description: v.description ?? "" }); }}
-                                className="px-2.5 py-1 rounded bg-[#1c424f] text-white text-xs font-semibold hover:bg-[#15323c] transition">Edit</button>
+                                className="px-2.5 py-1 rounded bg-[#1c424f] text-white text-xs font-semibold hover:bg-[#15323c] transition">Ubah</button>
                               <button onClick={() => deleteVariant(v.id)}
                                 className="px-2.5 py-1 rounded border border-red-300 text-red-600 text-xs font-semibold hover:bg-red-50 transition">Hapus</button>
                             </div>
@@ -645,7 +614,7 @@ export default function AdminPage() {
             <h2 className="text-xl font-bold text-gray-900">List Harga ({prices.length})</h2>
             <button onClick={() => { setDataLoading(true); setReloadKey((k) => k + 1); }}
               className="bg-white border border-[#908974]/40 text-[#1c424f] px-4 py-2 rounded-lg font-semibold hover:bg-[#f7f4ed] transition text-sm">
-              Refresh
+              Muat ulang
             </button>
           </div>
 
@@ -690,7 +659,7 @@ export default function AdminPage() {
                                 setEditingPriceId(price.id);
                                 setPriceForm({ brand_id: price.brand_id, variant_id: price.variant_id, harga_beli: String(price.harga_beli), harga_buyback: String(price.harga_buyback), image_url: price.image_url ?? "", description: price.description ?? "" });
                               }}
-                              className="px-3 py-1.5 rounded-lg bg-[#1c424f] text-white text-xs font-semibold hover:bg-[#15323c] transition">Edit</button>
+                              className="px-3 py-1.5 rounded-lg bg-[#1c424f] text-white text-xs font-semibold hover:bg-[#15323c] transition">Ubah</button>
                             <button onClick={() => deletePrice(price.id)}
                               className="px-3 py-1.5 rounded-lg border border-red-300 text-red-600 text-xs font-semibold hover:bg-red-50 transition">Hapus</button>
                           </div>

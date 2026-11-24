@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SESSION_COOKIE, verifySessionToken } from "@/lib/session";
+import {
+  renewSessionToken, SESSION_COOKIE, SESSION_IDLE_SECONDS, sessionCookieOptions, verifySessionToken,
+} from "@/lib/session";
+
+/** Perpanjang sesi paling sering sekali per menit (cukup untuk batas 15 menit tanpa aktivitas). */
+const RENEW_AFTER_MS = 60 * 1000;
 
 const MAX_BODY_BYTES = 64 * 1024; // semua payload API kita kecil (form JSON)
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -37,15 +42,20 @@ export function proxy(request: NextRequest) {
 
   // Lapisan pertama proteksi admin. Setiap API admin tetap memeriksa sesi sendiri
   // (requireAdmin) — jangan hanya mengandalkan proxy.
-  if (pathname.startsWith("/admin") || pathname.startsWith("/api/admin/")) {
-    const userId = verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
-    if (!userId) {
-      if (isApi) return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
+  const isAdminArea = pathname.startsWith("/admin") || pathname.startsWith("/api/admin/");
+  const session = verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
+  if (isAdminArea && !session) {
+    if (isApi) return NextResponse.json({ error: "Tidak terautentikasi" }, { status: 401 });
+    return NextResponse.redirect(new URL("/login?reason=expired", request.url));
   }
 
-  return NextResponse.next();
+  const res = NextResponse.next();
+  // Aktivitas di area admin (termasuk detak /api/auth/me) memperpanjang batas 15 menit.
+  const renewable = isAdminArea || pathname === "/api/auth/me";
+  if (session && renewable && session.expiresAt - Date.now() < SESSION_IDLE_SECONDS * 1000 - RENEW_AFTER_MS) {
+    res.cookies.set(SESSION_COOKIE, renewSessionToken(session), sessionCookieOptions());
+  }
+  return res;
 }
 
 export const config = {

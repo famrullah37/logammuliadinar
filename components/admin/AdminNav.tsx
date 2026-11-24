@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { versionLabel } from "@/lib/version";
+import IdleLogout from "./IdleLogout";
 import { resetMe, ROLE_LABEL, useMe, type Role } from "./useMe";
 
 const LINKS: { href: string; label: string; roles: Role[] }[] = [
@@ -31,6 +32,7 @@ export default function AdminNav() {
   const pathname = usePathname();
   const router = useRouter();
   const me = useMe();
+  const activeRef = useRef<HTMLAnchorElement>(null);
   const links = me ? LINKS.filter((l) => l.roles.includes(me.role)) : [];
 
   // Halaman di luar hak role → arahkan ke halaman awal role (API tetap menolak dengan 403).
@@ -40,41 +42,54 @@ export default function AdminNav() {
     if (current && !current.roles.includes(me.role)) router.replace(homeFor(me.role));
   }, [me, pathname, router]);
 
+  // Di HP menu bisa digeser: pastikan menu aktif terlihat.
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [me, pathname]);
+
   const logout = async () => {
     await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     resetMe();
     router.push("/login");
   };
 
+  // Nama tampilan singkat: nama pengguna, atau bagian depan email.
+  const displayName = me ? me.name || me.email.split("@")[0] : "";
+
   return (
     <nav aria-label="Menu admin" className="bg-[#1c424f] print:hidden">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex gap-1 overflow-x-auto py-2">
-        {links.map((l) => {
-          const active = isActive(l.href, pathname);
-          return (
-            <Link
-              key={l.href}
-              href={l.href}
-              aria-current={active ? "page" : undefined}
-              className={`whitespace-nowrap rounded-lg px-3.5 py-2 text-sm font-semibold transition ${
-                active ? "bg-white text-[#1c424f]" : "text-white/80 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {l.label}
-            </Link>
-          );
-        })}
-        <span className="ml-auto flex items-center gap-3 self-center whitespace-nowrap pl-3 text-xs text-white/60">
-          {me && (
-            <span title={me.email}>
-              {me.name || me.email} · <span className="font-semibold text-white/80">{ROLE_LABEL[me.role]}</span>
+      <IdleLogout />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="-mx-1 flex w-full gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:mx-0 lg:w-auto lg:flex-1 lg:flex-wrap lg:overflow-visible lg:px-0">
+          {links.map((l) => {
+            const active = isActive(l.href, pathname);
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                ref={active ? activeRef : undefined}
+                aria-current={active ? "page" : undefined}
+                className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  active ? "bg-white text-[#1c424f]" : "text-white/80 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {l.label}
+              </Link>
+            );
+          })}
+        </div>
+        {me && (
+          <div className="ml-auto flex items-center gap-2 whitespace-nowrap text-sm">
+            <span className="text-white/70" title={`${me.email} · ${versionLabel()}`}>
+              {displayName}
+              <span className="ml-1.5 rounded bg-white/15 px-1.5 py-0.5 text-xs font-semibold text-white">{ROLE_LABEL[me.role]}</span>
             </span>
-          )}
-          <button type="button" onClick={logout} className="rounded-md px-2 py-1 font-semibold text-white/80 hover:bg-white/10 hover:text-white">
-            Keluar
-          </button>
-          <span className="text-white/40" title="Versi aplikasi">{versionLabel()}</span>
-        </span>
+            <button type="button" onClick={logout}
+              className="rounded-lg border border-white/25 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/10">
+              Keluar
+            </button>
+          </div>
+        )}
       </div>
     </nav>
   );

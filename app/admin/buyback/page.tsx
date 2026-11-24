@@ -3,7 +3,6 @@
 import AdminNav from "@/components/admin/AdminNav";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import toast from "react-hot-toast";
 import { api, ApiError } from "@/lib/api";
 import type { BuybackRequest, OrderStatus } from "@/lib/types";
@@ -88,19 +87,10 @@ export default function AdminBuybackPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f4ed]">
-      <header className="bg-white border-b border-[#908974]/30 shadow-sm sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Pengajuan <span className="text-[#1c424f]">Buyback</span>
-          </h1>
-          <div className="flex gap-2">
-            <Link href="/admin/orders" className="px-4 py-2 rounded-lg text-sm font-semibold bg-white border border-[#908974]/40 text-[#1c424f] hover:bg-[#f7f4ed] transition">
-              Pesanan
-            </Link>
-            <Link href="/admin" className="px-4 py-2 rounded-lg text-sm font-semibold bg-[#1c424f] text-white hover:bg-[#15323c] transition">
-              ← Admin
-            </Link>
-          </div>
+      <header className="bg-white border-b border-[#908974]/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <h1 className="text-2xl font-bold text-gray-900">Pengajuan <span className="text-[#1c424f]">Buyback</span></h1>
+          <p className="text-sm text-gray-500">{items.length} pengajuan ditampilkan · nota terbit saat status Selesai.</p>
         </div>
       </header>
       <AdminNav />
@@ -115,7 +105,7 @@ export default function AdminBuybackPage() {
           ))}
           <button onClick={() => { setLoading(true); setReloadKey((k) => k + 1); }}
             className="ml-auto px-4 py-2 rounded-lg text-sm font-semibold bg-white border border-[#908974]/40 text-[#1c424f] hover:bg-[#f7f4ed] transition">
-            Refresh
+            Muat ulang
           </button>
         </div>
 

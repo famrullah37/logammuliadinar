@@ -282,7 +282,7 @@ export default function AdminStockPage() {
           />
           <button onClick={() => { setLoading(true); setReloadKey((k) => k + 1); }}
             className="ml-auto px-4 py-2 rounded-lg text-sm font-semibold bg-white border border-[#908974]/40 text-[#1c424f] hover:bg-white/70 transition">
-            Refresh
+            Muat ulang
           </button>
         </div>
 
@@ -290,7 +290,7 @@ export default function AdminStockPage() {
           {loading ? (
             <p className="p-10 text-center text-gray-500">Memuat stok...</p>
           ) : (
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wider text-gray-500 border-b border-[#908974]/20">
                   <th className="px-4 py-3">Produk</th>

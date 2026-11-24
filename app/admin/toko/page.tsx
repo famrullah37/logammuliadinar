@@ -216,7 +216,7 @@ export default function StorePosPage() {
       <header className="bg-white border-b border-[#908974]/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Kasir <span className="text-[#1c424f]">Toko</span></h1>
+            <h1 className="text-2xl font-bold text-gray-900">Transaksi <span className="text-[#1c424f]">Toko</span></h1>
             <p className="text-sm text-gray-500">Penjualan & buyback langsung di toko · harga hari ini · nota langsung terbit.</p>
           </div>
           <div className="inline-flex rounded-xl border border-[#908974]/30 bg-[#f7f4ed] p-1">
@@ -233,7 +233,7 @@ export default function StorePosPage() {
       </header>
       <AdminNav />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 ${selected ? "pb-28 lg:pb-6" : ""}`}>
         {done && (
           <div className="rounded-2xl border-2 border-emerald-600/40 bg-emerald-50 p-5 flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -326,7 +326,7 @@ export default function StorePosPage() {
           </section>
 
           {/* ── Panel transaksi ───────────────────────────────── */}
-          <aside className={`rounded-2xl border-2 bg-white p-5 space-y-4 lg:sticky lg:top-4 ${isSale ? "border-emerald-600/30" : "border-[#ce9233]/40"}`}>
+          <aside id="pos-panel" className={`scroll-mt-4 rounded-2xl border-2 bg-white p-5 space-y-4 lg:sticky lg:top-4 ${isSale ? "border-emerald-600/30" : "border-[#ce9233]/40"}`}>
             <h2 className="font-bold text-gray-900">{isSale ? "Penjualan" : "Buyback"}</h2>
 
             {!selected ? (
@@ -480,6 +480,27 @@ export default function StorePosPage() {
             )}
           </aside>
         </div>
+
+        {/* ── HP/tablet: ringkasan + tombol bayar menempel di bawah ── */}
+        {selected && (
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#908974]/30 bg-white/95 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)] backdrop-blur lg:hidden print:hidden">
+            <div className="mx-auto flex max-w-3xl items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-gray-900">
+                  {selected.type_name} · {selected.brand_name} × {form.quantity}
+                </p>
+                <p className="text-lg font-bold tabular-nums text-[#1c424f]">{formatRupiah(total)}</p>
+              </div>
+              <button type="button"
+                onClick={() => document.getElementById("pos-panel")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                className={`shrink-0 rounded-xl px-6 py-3 text-base font-bold text-white ${
+                  isSale ? "bg-emerald-600 hover:bg-emerald-700" : "bg-[#ce9233] hover:bg-[#b87f2d]"
+                }`}>
+                {isSale ? "Bayar" : "Proses"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Rekening toko (kelola: admin) ─────────────────────── */}
         {isAdmin && (

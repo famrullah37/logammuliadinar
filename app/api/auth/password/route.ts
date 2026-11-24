@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAdminId, hashPassword, verifyPassword } from "@/lib/auth";
 import { queryOne } from "@/lib/db";
 import { rateLimit } from "@/lib/rate-limit";
-import { createSessionToken, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/session";
+import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 
 // Admin: ganti password sendiri. Sesi lain (perangkat lain) otomatis keluar karena sidik
 // password berubah; sesi di perangkat ini diperbarui agar tetap masuk.
@@ -32,13 +32,7 @@ export async function POST(req: NextRequest) {
     await queryOne("UPDATE admin_users SET password_hash = $1 WHERE id = $2", [newHash, userId]);
 
     const res = NextResponse.json({ success: true });
-    res.cookies.set(SESSION_COOKIE, createSessionToken(userId, newHash), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: SESSION_MAX_AGE_SECONDS,
-    });
+    res.cookies.set(SESSION_COOKIE, createSessionToken(userId, newHash), sessionCookieOptions());
     return res;
   } catch (err) {
     console.error("POST /api/auth/password", err);

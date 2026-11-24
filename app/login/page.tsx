@@ -1,12 +1,25 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import Image from "next/image";
 import PasswordInput from "@/components/PasswordInput";
+
+/** Pesan bila pengguna dikeluarkan otomatis (tidak aktif 15 menit / sesi habis). */
+function SessionNotice() {
+  const reason = useSearchParams().get("reason");
+  if (reason !== "idle" && reason !== "expired") return null;
+  return (
+    <p role="status" className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+      {reason === "idle"
+        ? "Anda keluar otomatis karena 15 menit tidak ada aktivitas. Silakan masuk lagi."
+        : "Sesi Anda sudah berakhir. Silakan masuk lagi."}
+    </p>
+  );
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -56,6 +69,9 @@ export default function LoginPage() {
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <Suspense fallback={null}>
+              <SessionNotice />
+            </Suspense>
             {/* Email */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">

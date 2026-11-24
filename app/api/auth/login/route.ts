@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { queryOne } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
 import { rateLimit } from "@/lib/rate-limit";
-import { createSessionToken, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/session";
+import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/session";
 
 // Hash acak (scrypt, format sama) untuk perbandingan saat email tidak ditemukan.
 const DUMMY_HASH =
@@ -38,13 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     const res = NextResponse.json({ success: true, role: user.role });
-    res.cookies.set(SESSION_COOKIE, createSessionToken(user.id, user.password_hash), {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: SESSION_MAX_AGE_SECONDS,
-    });
+    res.cookies.set(SESSION_COOKIE, createSessionToken(user.id, user.password_hash), sessionCookieOptions());
     return res;
   } catch (err) {
     console.error("POST /api/auth/login", err);

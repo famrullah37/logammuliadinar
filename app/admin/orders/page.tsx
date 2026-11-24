@@ -3,7 +3,6 @@
 import AdminNav from "@/components/admin/AdminNav";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import type { Order, OrderStatus } from "@/lib/types";
 import toast from "react-hot-toast";
@@ -123,21 +122,10 @@ export default function AdminOrdersPage() {
 
   return (
     <div className="min-h-screen bg-[#f7f4ed]">
-      <header className="bg-white border-b border-[#908974]/30 shadow-sm sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Manajemen <span className="text-[#1c424f]">Pesanan</span>
-            </h1>
-            <Link href="/admin/buyback" className="text-sm font-semibold text-[#1c424f] hover:underline">
-              Lihat pengajuan buyback →
-            </Link>
-            <p className="text-sm text-gray-500">{orders.length} pesanan ditampilkan</p>
-          </div>
-          <Link href="/admin"
-            className="bg-white border border-[#908974]/40 text-[#1c424f] px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#f7f4ed] transition">
-            ← Kembali ke Admin
-          </Link>
+      <header className="bg-white border-b border-[#908974]/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <h1 className="text-2xl font-bold text-gray-900">Daftar <span className="text-[#1c424f]">Pesanan</span></h1>
+          <p className="text-sm text-gray-500">{orders.length} pesanan ditampilkan · online dan transaksi toko (label &quot;Toko&quot;).</p>
         </div>
       </header>
       <AdminNav />
@@ -160,7 +148,7 @@ export default function AdminOrdersPage() {
           ))}
           <button onClick={() => { setLoading(true); setReloadKey((k) => k + 1); }}
             className="ml-auto px-4 py-2 rounded-lg text-sm font-semibold bg-white border border-[#908974]/40 text-[#1c424f] hover:bg-[#f7f4ed] transition">
-            Refresh
+            Muat ulang
           </button>
         </div>
 

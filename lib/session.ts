@@ -5,7 +5,21 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 export const SESSION_COOKIE = "lmd_admin_session";
-export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 hari
+/**
+ * Sesi berakhir setelah 15 menit tanpa aktivitas. Setiap permintaan ke halaman/API admin
+ * memperpanjangnya (proxy.ts), dan klien mengirim "detak" saat pengguna aktif (IdleLogout).
+ */
+export const SESSION_IDLE_SECONDS = 15 * 60;
+export const SESSION_MAX_AGE_SECONDS = SESSION_IDLE_SECONDS;
+
+/** Opsi cookie sesi; cookie ikut kedaluwarsa bersama token. */
+export const sessionCookieOptions = () => ({
+  httpOnly: true,
+  sameSite: "lax" as const,
+  secure: process.env.NODE_ENV === "production",
+  path: "/",
+  maxAge: SESSION_MAX_AGE_SECONDS,
+});
 
 function getSecret(): string {
   const secret = process.env.SESSION_SECRET;
@@ -23,14 +37,29 @@ function sign(payload: string): string {
 export const passwordVersion = (passwordHash: string) =>
   createHash("sha256").update(passwordHash).digest("base64url").slice(0, 16);
 
-export function createSessionToken(userId: string, passwordHash: string): string {
-  const expiresAt = Date.now() + SESSION_MAX_AGE_SECONDS * 1000;
-  const payload = `${userId}.${passwordVersion(passwordHash)}.${expiresAt}`;
+function issueToken(userId: string, pwdVersion: string): string {
+  const expiresAt = Date.now() + SESSION_IDLE_SECONDS * 1000;
+  const payload = `${userId}.${pwdVersion}.${expiresAt}`;
   return `${payload}.${sign(payload)}`;
 }
 
-/** Mengembalikan { userId, pwdVersion } bila tanda tangan valid & belum kedaluwarsa, selain itu null. */
-export function verifySessionToken(token: string | undefined | null): { userId: string; pwdVersion: string } | null {
+export function createSessionToken(userId: string, passwordHash: string): string {
+  return issueToken(userId, passwordVersion(passwordHash));
+}
+
+/** Perpanjang sesi yang masih sah (aktivitas pengguna). Hak akses tetap dicek ke DB di setiap API. */
+export function renewSessionToken(session: { userId: string; pwdVersion: string }): string {
+  return issueToken(session.userId, session.pwdVersion);
+}
+
+export interface SessionInfo {
+  userId: string;
+  pwdVersion: string;
+  expiresAt: number;
+}
+
+/** Mengembalikan data sesi bila tanda tangan valid & belum kedaluwarsa, selain itu null. */
+export function verifySessionToken(token: string | undefined | null): SessionInfo | null {
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 4) return null;
@@ -46,5 +75,5 @@ export function verifySessionToken(token: string | undefined | null): { userId: 
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   if (!/^\d+$/.test(expiresAt) || Number(expiresAt) < Date.now()) return null;
-  return { userId, pwdVersion };
+  return { userId, pwdVersion, expiresAt: Number(expiresAt) };
 }
