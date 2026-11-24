@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BusinessError, withTransaction } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
 import { UUID_RE } from "@/lib/queries";
 
 /**
@@ -9,7 +9,7 @@ import { UUID_RE } from "@/lib/queries";
  * total_bayar dihitung database; total_transfer ikut disesuaikan untuk pesanan transfer.
  */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await requireAdmin();
+  const denied = await requireStaff();
   if (denied) return denied;
 
   const { id } = await params;

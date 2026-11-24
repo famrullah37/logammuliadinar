@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
 import { ORDER_SELECT } from "@/lib/queries";
 
 const STATUSES = ["pending", "confirmed", "completed", "cancelled"];
 
 // Admin: daftar pesanan, opsional ?status=...
 export async function GET(req: NextRequest) {
-  const denied = await requireAdmin();
+  const denied = await requireStaff();
   if (denied) return denied;
 
   const status = req.nextUrl.searchParams.get("status");

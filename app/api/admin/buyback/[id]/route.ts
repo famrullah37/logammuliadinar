@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
 import { BusinessError } from "@/lib/db";
 import { UUID_RE } from "@/lib/queries";
 import { setBuybackStatus, TX_STATUSES, type TxStatus } from "@/lib/receipts";
 
 // Admin: ubah status pengajuan buyback. Status 'completed' otomatis menerbitkan nota buyback.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await requireAdmin();
+  const denied = await requireStaff();
   if (denied) return denied;
 
   const { id } = await params;

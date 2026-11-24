@@ -283,3 +283,9 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
   created_at     timestamptz NOT NULL DEFAULT now(),
   UNIQUE (bank, account_number)
 );
+
+-- Role pengguna panel admin (admin / kasir) dan status aktif.
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS role text NOT NULL DEFAULT 'admin'
+  CHECK (role IN ('admin', 'kasir'));
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS active boolean NOT NULL DEFAULT true;
+ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS name text;

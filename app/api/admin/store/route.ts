@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { getSessionUser, requireStaff } from "@/lib/auth";
 import { BusinessError } from "@/lib/db";
 import { UUID_RE } from "@/lib/queries";
 import { createStoreBuyback, createStoreSale } from "@/lib/store";
@@ -27,7 +27,7 @@ const bad = (error: string) => NextResponse.json({ error }, { status: 400 });
 
 // Admin: transaksi langsung di toko (penjualan / buyback). Langsung selesai dan menerbitkan nota.
 export async function POST(req: NextRequest) {
-  const denied = await requireAdmin();
+  const denied = await requireStaff();
   if (denied) return denied;
 
   const body = (await req.json().catch(() => null)) as StorePayload | null;
@@ -38,8 +38,13 @@ export async function POST(req: NextRequest) {
   if (!body.price_id || !UUID_RE.test(body.price_id)) return bad("Pilih produk");
   const quantity = Number(body.quantity);
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 1000) return bad("Jumlah harus bilangan bulat 1–1000");
-  const unitPrice = Number(body.unit_price);
-  if (!Number.isFinite(unitPrice) || unitPrice <= 0 || unitPrice > 1e11) return bad("Harga per keping tidak valid");
+  // Kasir selalu memakai harga hari ini (ditetapkan server); harga khusus hanya untuk admin.
+  const isAdmin = (await getSessionUser())?.role === "admin";
+  let unitPrice: number | undefined;
+  if (isAdmin && body.unit_price !== undefined && body.unit_price !== null && body.unit_price !== "") {
+    unitPrice = Number(body.unit_price);
+    if (!Number.isFinite(unitPrice) || unitPrice <= 0 || unitPrice > 1e11) return bad("Harga per keping tidak valid");
+  }
 
   const name = str(body.name);
   const phone = str(body.phone);

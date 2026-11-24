@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
   if (limitedEmail) return limitedEmail;
 
   try {
-    const user = await queryOne<{ id: string; password_hash: string }>(
-      "SELECT id, password_hash FROM admin_users WHERE email = $1",
+    const user = await queryOne<{ id: string; password_hash: string; role: string; active: boolean }>(
+      "SELECT id, password_hash, role, active FROM admin_users WHERE email = $1",
       [email],
     );
     // Email tidak terdaftar tetap menjalankan scrypt agar waktu respons tidak membocorkan email admin.
@@ -32,8 +32,12 @@ export async function POST(req: NextRequest) {
     if (!user || !ok) {
       return NextResponse.json({ error: "Email atau password salah" }, { status: 401 });
     }
+    // Dicek setelah password benar agar status akun tidak bocor ke penebak password.
+    if (!user.active) {
+      return NextResponse.json({ error: "Akun ini dinonaktifkan. Hubungi admin." }, { status: 403 });
+    }
 
-    const res = NextResponse.json({ success: true });
+    const res = NextResponse.json({ success: true, role: user.role });
     res.cookies.set(SESSION_COOKIE, createSessionToken(user.id, user.password_hash), {
       httpOnly: true,
       sameSite: "lax",

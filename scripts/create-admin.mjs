@@ -1,4 +1,5 @@
 // Membuat atau mengganti password akun admin (mengganti password otomatis mencabut sesi lama).
+// Akun yang sudah ada sekaligus dijadikan admin & diaktifkan lagi (jalur pemulihan bila terkunci).
 // Pemakaian (disarankan — password diketik, tidak tersimpan di riwayat shell / daftar proses):
 //   DATABASE_URL=postgresql://... node scripts/create-admin.mjs admin@contoh.com
 //   docker compose exec app node scripts/create-admin.mjs admin@contoh.com
@@ -54,8 +55,8 @@ const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
 await client.connect();
 try {
   await client.query(
-    `INSERT INTO admin_users (email, password_hash) VALUES ($1, $2)
-     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash`,
+    `INSERT INTO admin_users (email, password_hash, role, active) VALUES ($1, $2, 'admin', true)
+     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, role = 'admin', active = true`,
     [email.trim().toLowerCase(), passwordHash],
   );
   console.log(`Admin ${email} siap dipakai.`);

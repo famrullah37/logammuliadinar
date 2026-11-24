@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import AdminNav from "@/components/admin/AdminNav";
 import PasswordInput from "@/components/PasswordInput";
+import UserManager from "@/components/admin/UserManager";
+import { ROLE_LABEL, useMe } from "@/components/admin/useMe";
 import { api, ApiError } from "@/lib/api";
 
 const inputCls =
@@ -12,6 +14,7 @@ const inputCls =
 
 export default function AdminAccountPage() {
   const router = useRouter();
+  const me = useMe();
   const [form, setForm] = useState({ current: "", next: "", again: "" });
   const [saving, setSaving] = useState(false);
   const mismatch = form.again.length > 0 && form.next !== form.again;
@@ -37,14 +40,16 @@ export default function AdminAccountPage() {
     <div className="min-h-screen bg-[#f7f4ed]">
       <header className="bg-white border-b border-[#908974]/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">Akun <span className="text-[#1c424f]">Admin</span></h1>
-          <p className="text-sm text-gray-500">Ganti password login admin.</p>
+          <h1 className="text-2xl font-bold text-gray-900">Akun <span className="text-[#1c424f]">& Pengguna</span></h1>
+          <p className="text-sm text-gray-500">
+            {me ? <>{me.email} · {ROLE_LABEL[me.role]}</> : "Ganti password login."}
+          </p>
         </div>
       </header>
       <AdminNav />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <form onSubmit={submit} className="max-w-md bg-white rounded-2xl border border-[#908974]/30 p-6 space-y-4">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid gap-6 lg:grid-cols-[28rem_1fr] lg:items-start">
+        <form onSubmit={submit} className="bg-white rounded-2xl border border-[#908974]/30 p-6 space-y-4">
           <h2 className="font-bold text-gray-900">Ganti password</h2>
           <label className="block text-sm font-semibold text-gray-700">
             Password lama
@@ -76,6 +81,7 @@ export default function AdminAccountPage() {
             Setelah diganti, sesi login di perangkat lain otomatis berakhir. Perangkat ini tetap masuk.
           </p>
         </form>
+        {me?.role === "admin" && <UserManager meId={me.id} />}
       </main>
     </div>
   );

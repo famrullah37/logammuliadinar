@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import AdminNav from "@/components/admin/AdminNav";
+import { useMe } from "@/components/admin/useMe";
 import { api, ApiError } from "@/lib/api";
 
 interface StockRow {
@@ -68,6 +69,7 @@ const formatDate = (iso: string) =>
 
 export default function AdminStockPage() {
   const router = useRouter();
+  const isAdmin = useMe()?.role === "admin";
   const [rows, setRows] = useState<StockRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
@@ -203,7 +205,7 @@ export default function AdminStockPage() {
             ["Stok emas batangan", `${formatNum(barGram, 3)} gram`, `${formatNum(barPcs, 0)} keping`],
             ["Total emas", `${formatNum(dinarGram + barGram, 3)} gram`,
               `setara ${formatNum((dinarGram + barGram) / GRAM_PER_DINAR, 2)} dinar`],
-            ["Nilai stok (modal FIFO)", formatRupiah(totalValue)],
+            ...(isAdmin ? [["Nilai stok (modal FIFO)", formatRupiah(totalValue)]] : []),
             ["Dilacak", `${tracked.length} dari ${rows.length}`],
             ["Stok habis", String(outOfStock)],
           ].map(([k, v, sub]) => (
@@ -215,8 +217,8 @@ export default function AdminStockPage() {
           ))}
         </div>
 
-        {/* ── Input stok baru ─────────────────────────────────── */}
-        <form onSubmit={submitIncoming} className="bg-white rounded-2xl border-2 border-emerald-600/30 p-5 space-y-4">
+        {/* ── Input stok baru (admin) ───────────────────────────── */}
+        {isAdmin && <form onSubmit={submitIncoming} className="bg-white rounded-2xl border-2 border-emerald-600/30 p-5 space-y-4">
           <div>
             <h2 className="font-bold text-gray-900">Input stok baru</h2>
             <p className="text-sm text-gray-500">
@@ -269,7 +271,7 @@ export default function AdminStockPage() {
               <span className="text-gray-500"> — dicatat sebagai kas keluar &quot;Pembelian stok&quot;</span>
             </p>
           )}
-        </form>
+        </form>}
 
         <div className="flex flex-wrap gap-3">
           <input
@@ -294,7 +296,7 @@ export default function AdminStockPage() {
                   <th className="px-4 py-3">Produk</th>
                   <th className="px-4 py-3">Brand</th>
                   <th className="px-4 py-3 text-right">Stok</th>
-                  <th className="px-4 py-3 text-right">Nilai modal</th>
+                  {isAdmin && <th className="px-4 py-3 text-right">Nilai modal</th>}
                   <th className="px-4 py-3">Terakhir berubah</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -324,15 +326,18 @@ export default function AdminStockPage() {
                           </>
                         )}
                       </td>
+                      {isAdmin && (
                       <td className="px-4 py-3 text-right tabular-nums text-gray-700">
                         {r.stock ? formatRupiah(Number(r.nilai_modal)) : "—"}
                         {r.stock && r.modal_berikutnya !== null ? (
                           <span className="block text-[11px] text-gray-400">keluar berikutnya @ {formatRupiah(r.modal_berikutnya)}</span>
                         ) : null}
                       </td>
+                      )}
                       <td className="px-4 py-3 text-xs text-gray-500">{r.last_movement ? formatDate(r.last_movement) : "—"}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap justify-end gap-1.5">
+                          {isAdmin && <>
                           <button onClick={() => setEditing({ id: r.id, mode: "purchase", value: "", unitCost: "", note: "" })}
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700">
                             + Masuk dari pusat
@@ -341,20 +346,25 @@ export default function AdminStockPage() {
                             className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1c424f] text-white hover:bg-[#15323c]">
                             {r.stock === null ? "Lacak stok" : "Set"}
                           </button>
+                          </>}
                           {r.stock !== null && (
                             <>
+                              {isAdmin && (
                               <button onClick={() => setEditing({ id: r.id, mode: "adjust", value: "", unitCost: "", note: "" })}
                                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#ce9233] text-white hover:bg-[#b87f2d]">
                                 ± Sesuaikan
                               </button>
+                              )}
                               <button onClick={() => showHistory(r)}
                                 className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-[#908974]/40 text-[#1c424f] hover:bg-[#f7f4ed]">
                                 Riwayat
                               </button>
+                              {isAdmin && (
                               <button onClick={() => untrack(r)}
                                 className="px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 hover:text-red-600">
                                 Lepas
                               </button>
+                              )}
                             </>
                           )}
                         </div>
@@ -362,7 +372,7 @@ export default function AdminStockPage() {
                     </tr>
                     {editing?.id === r.id && (
                       <tr className="bg-[#f7f4ed]">
-                        <td colSpan={6} className="px-4 py-4">
+                        <td colSpan={isAdmin ? 6 : 5} className="px-4 py-4">
                           <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
                             <label className="text-sm">
                               <span className="block text-xs font-semibold text-gray-600 mb-1">
@@ -408,7 +418,7 @@ export default function AdminStockPage() {
                     )}
                     {history?.id === r.id && (
                       <tr className="bg-[#fcfaf6]">
-                        <td colSpan={6} className="px-4 py-4">
+                        <td colSpan={isAdmin ? 6 : 5} className="px-4 py-4">
                           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">Lot tersisa (FIFO: atas keluar lebih dulu)</p>
                           {history.lots.length === 0 ? (
                             <p className="mb-4 text-sm text-gray-500">Tidak ada lot tersisa.</p>
@@ -420,7 +430,7 @@ export default function AdminStockPage() {
                                     <td className="py-1.5 pr-3 text-gray-500 whitespace-nowrap">{formatDate(l.created_at)}</td>
                                     <td className="py-1.5 pr-3">{LOT_SOURCE[l.source] ?? l.source}</td>
                                     <td className="py-1.5 pr-3 text-right font-semibold tabular-nums">{l.qty_remaining} / {l.qty_in} keping</td>
-                                    <td className="py-1.5 pr-3 text-right tabular-nums">{l.unit_cost === null ? "modal ?" : `@ ${formatRupiah(Number(l.unit_cost))}`}</td>
+                                    <td className="py-1.5 pr-3 text-right tabular-nums">{!isAdmin ? "" : l.unit_cost === null ? "modal ?" : `@ ${formatRupiah(Number(l.unit_cost))}`}</td>
                                     <td className="py-1.5 font-mono text-gray-500">{l.ref ?? ""}</td>
                                     <td className="py-1.5 text-gray-500">{l.note ?? ""}</td>
                                   </tr>

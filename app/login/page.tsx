@@ -20,8 +20,8 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await api("/api/auth/login", { method: "POST", body: { email, password } });
-      router.push("/admin");
+      const res = await api<{ role: string }>("/api/auth/login", { method: "POST", body: { email, password } });
+      router.push(res.role === "admin" ? "/admin" : "/admin/toko");
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Terjadi kesalahan";

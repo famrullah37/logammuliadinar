@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
 import { BusinessError, PG, pgErrorCode } from "@/lib/db";
 import { UUID_RE } from "@/lib/queries";
 import { setOrderStatus, TX_STATUSES, type TxStatus } from "@/lib/receipts";
 
 // Admin: ubah status pesanan. Status 'completed' otomatis menerbitkan nota.
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const denied = await requireAdmin();
+  const denied = await requireStaff();
   if (denied) return denied;
 
   const { id } = await params;

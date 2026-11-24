@@ -20,14 +20,16 @@ export interface StoreCustomer {
 export interface StoreSaleInput extends StoreCustomer {
   priceId: string;
   quantity: number;
-  unitPrice: number;
+  /** Harga khusus per keping (hanya admin). Kosong = harga jual hari ini. */
+  unitPrice?: number;
   paymentMethod: "cash" | "transfer";
 }
 
 export interface StoreBuybackInput extends StoreCustomer {
   priceId: string;
   quantity: number;
-  unitPrice: number;
+  /** Harga khusus per keping (hanya admin). Kosong = harga buyback hari ini. */
+  unitPrice?: number;
   payoutMethod: "cash" | "transfer";
   bank: { bank: string; number: string; holder: string } | null;
   hasCertificate: boolean;
@@ -72,7 +74,9 @@ export function createStoreSale(input: StoreSaleInput): Promise<StoreResult> {
     if (row.stock !== null && row.stock < input.quantity) {
       throw new BusinessError(row.stock === 0 ? "Stok produk ini habis" : `Stok tidak cukup (tersisa ${row.stock})`);
     }
-    const total = input.unitPrice * input.quantity;
+    const unitPrice = input.unitPrice ?? Number(row.harga_beli);
+    if (!(unitPrice > 0)) throw new BusinessError("Harga jual produk ini belum diisi", 400);
+    const total = unitPrice * input.quantity;
     const order = await insertWithNumber<{ id: string; order_number: string }>(
       tx,
       "TK",
@@ -81,7 +85,7 @@ export function createStoreSale(input: StoreSaleInput): Promise<StoreResult> {
          buyer_name, buyer_phone, buyer_email, delivery_method, payment_method, notes, channel
        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'pickup',$10,$11,'store')
        RETURNING id, order_number`,
-      [variant_id, brand_id, input.quantity, input.unitPrice, total,
+      [variant_id, brand_id, input.quantity, unitPrice, total,
         input.name, input.phone, input.email, input.paymentMethod, input.notes],
     );
     await changeStock(tx, row, -input.quantity, "order", order.order_number);
@@ -92,8 +96,10 @@ export function createStoreSale(input: StoreSaleInput): Promise<StoreResult> {
 
 export function createStoreBuyback(input: StoreBuybackInput): Promise<StoreResult> {
   return withTransaction(async (tx) => {
-    const { variant_id, brand_id } = await priceRowById(tx, input.priceId);
-    const total = input.unitPrice * input.quantity;
+    const { variant_id, brand_id, row } = await priceRowById(tx, input.priceId);
+    const unitPrice = input.unitPrice ?? Number(row.harga_buyback);
+    if (!(unitPrice > 0)) throw new BusinessError("Harga buyback produk ini belum diisi", 400);
+    const total = unitPrice * input.quantity;
     const req = await insertWithNumber<{ id: string; request_number: string }>(
       tx,
       "BB",
@@ -103,7 +109,7 @@ export function createStoreBuyback(input: StoreBuybackInput): Promise<StoreResul
          channel, payout_method, seller_bank, seller_account_number, seller_account_holder
        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'store',$12,'store',$13,$14,$15,$16)
        RETURNING id, request_number`,
-      [variant_id, brand_id, input.quantity, input.unitPrice, total,
+      [variant_id, brand_id, input.quantity, unitPrice, total,
         input.name, input.phone, input.email, input.hasCertificate, input.hasPackaging, input.notes,
         input.payoutMethod, input.bank?.bank ?? null, input.bank?.number ?? null, input.bank?.holder ?? null],
     );

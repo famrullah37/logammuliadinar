@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { getSessionUser, requireStaff } from "@/lib/auth";
 import { UUID_RE } from "@/lib/queries";
 
 // Admin: daftar stok per brand × pecahan (dengan nilai modal FIFO),
 // atau riwayat + lot tersisa satu baris (?price_id=).
 export async function GET(req: NextRequest) {
-  const denied = await requireAdmin();
+  const denied = await requireStaff();
   if (denied) return denied;
 
+  // Modal (harga beli dari pusat) hanya untuk admin.
+  const isAdmin = (await getSessionUser())?.role === "admin";
   const priceId = req.nextUrl.searchParams.get("price_id");
   try {
     if (priceId) {
@@ -25,7 +27,10 @@ export async function GET(req: NextRequest) {
           [priceId],
         ),
       ]);
-      return NextResponse.json({ movements, lots });
+      return NextResponse.json({
+        movements,
+        lots: isAdmin ? lots : lots.map((l) => ({ ...l, unit_cost: null })),
+      });
     }
     const rows = await query(
       `SELECT pr.id, pr.stock, pr.harga_beli, pr.harga_buyback,
@@ -41,7 +46,7 @@ export async function GET(req: NextRequest) {
          JOIN products p ON p.id = v.product_id
         ORDER BY p.name, v.weight, b.name`,
     );
-    return NextResponse.json(rows);
+    return NextResponse.json(isAdmin ? rows : rows.map((r) => ({ ...r, nilai_modal: null, modal_berikutnya: null })));
   } catch (err) {
     console.error("GET /api/admin/stock", err);
     return NextResponse.json({ error: "Gagal memuat stok" }, { status: 500 });
