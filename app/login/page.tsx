@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import toast from "react-hot-toast";
 import Link from "next/link";
 import Image from "next/image";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -75,10 +76,10 @@ export default function LoginPage() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Password
               </label>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
                 required
                 className="w-full px-4 py-3 border-2 border-[#908974]/40 rounded-lg focus:outline-none focus:border-[#1c424f] focus:ring-2 focus:ring-[#1c424f]/20 transition"
                 placeholder="••••••••"

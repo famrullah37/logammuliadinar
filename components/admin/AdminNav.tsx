@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/admin/kas", label: "Kas" },
   { href: "/admin/laporan", label: "Laporan" },
   { href: "/admin/zakat", label: "Zakat" },
+  { href: "/admin/akun", label: "Akun" },
 ];
 
 /** Navigasi antar halaman admin. */
