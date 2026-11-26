@@ -26,6 +26,15 @@ const INIT_VARIANT: VariantForm = { product_id: "", type_name: "", weight: "", p
 // Gambar yang sudah ada di /public, ditawarkan sebagai pilihan cepat.
 const IMAGE_PRESETS = ["/1per4-DINAR.png", "/1per2-DINAR.png", "/1-DINAR.png", "/BLKLG-DINAR.png"];
 
+/** Berat standar dinar dari nama pecahan: "1/4 Dinar" → 1.0625, "2 Dinar" → 8.5 (1 dinar = 4,25 g). */
+function dinarWeight(typeName: string): number | null {
+  const m = typeName.trim().match(/^(\d+)(?:\s*\/\s*(\d+))?\s*dinar$/i);
+  if (!m) return null;
+  const den = m[2] ? Number(m[2]) : 1;
+  if (!den) return null;
+  return Math.round((Number(m[1]) / den) * 4.25 * 100000) / 100000;
+}
+
 export default function AdminPage() {
   const router = useRouter();
 
@@ -56,6 +65,7 @@ export default function AdminPage() {
 
   // variant form
   const [variantForm, setVariantForm] = useState<VariantForm>(INIT_VARIANT);
+  const standardWeight = dinarWeight(variantForm.type_name);
   const [editingVariantId, setEditingVariantId] = useState<string | null>(null);
   const [variantSubmitting, setVariantSubmitting] = useState(false);
 
@@ -504,12 +514,22 @@ export default function AdminPage() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">Berat (gram)</label>
               <input
                 type="number"
-                step="0.01"
+                step="any"
+                min="0"
                 value={variantForm.weight}
                 onChange={(e) => setVariantForm((v) => ({ ...v, weight: e.target.value }))}
                 className="w-full px-4 py-3 border border-[#908974]/40 rounded-xl focus:outline-none focus:border-[#1c424f]"
                 placeholder="Contoh: 4.25"
               />
+              {standardWeight !== null && Number(variantForm.weight) !== standardWeight && (
+                <p className="mt-1.5 text-xs text-amber-700">
+                  Berat standar {variantForm.type_name.trim()} = {standardWeight.toLocaleString("id-ID", { maximumFractionDigits: 5 })} gram.{" "}
+                  <button type="button" onClick={() => setVariantForm((v) => ({ ...v, weight: String(standardWeight) }))}
+                    className="font-semibold underline">
+                    Pakai berat ini
+                  </button>
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Kadar emas (Au)</label>

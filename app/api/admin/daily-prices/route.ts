@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BusinessError, withTransaction } from "@/lib/db";
+import { BusinessError, queryOne, withTransaction } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
 import { UUID_RE } from "@/lib/queries";
 
@@ -14,12 +14,25 @@ const validPrice = (v: number) => Number.isFinite(v) && v >= 0 && v <= 1e12;
 /**
  * Admin: perbarui harga harian (harga beli & buyback) banyak baris sekaligus dalam satu transaksi.
  * Kolom updated_at diisi otomatis oleh trigger database bila harga berubah.
+ * { confirm: true } = harga hari ini sama dengan sebelumnya: semua harga ditandai dikonfirmasi
+ * (updated_at = sekarang) tanpa mengubah angkanya.
  */
 export async function POST(req: NextRequest) {
   const denied = await requireAdmin();
   if (denied) return denied;
 
-  const body = (await req.json().catch(() => ({}))) as { items?: Item[] };
+  const body = (await req.json().catch(() => ({}))) as { items?: Item[]; confirm?: unknown };
+  if (body.confirm === true) {
+    try {
+      const row = await queryOne<{ n: number }>(
+        "WITH u AS (UPDATE prices SET updated_at = now() RETURNING 1) SELECT count(*)::int AS n FROM u",
+      );
+      return NextResponse.json({ success: true, confirmed: row?.n ?? 0 });
+    } catch (err) {
+      console.error("POST /api/admin/daily-prices (confirm)", err);
+      return NextResponse.json({ error: "Gagal mengonfirmasi harga" }, { status: 500 });
+    }
+  }
   const items = Array.isArray(body.items) ? body.items : [];
   if (items.length === 0 || items.length > 500) {
     return NextResponse.json({ error: "Tidak ada perubahan harga" }, { status: 400 });

@@ -13,7 +13,7 @@ export async function GET() {
       query("SELECT id, name FROM brands ORDER BY name"),
       query("SELECT id, name FROM products ORDER BY name"),
       query("SELECT id, product_id, type_name, weight, purity, image_url, description FROM product_variants ORDER BY weight"),
-      query(`${PRICE_SELECT} ORDER BY pr.created_at DESC`),
+      query(`${PRICE_SELECT} ORDER BY p.name, v.weight, b.name`),
       query("SELECT id, bank, account_number, holder FROM bank_accounts ORDER BY created_at"),
     ]);
     return NextResponse.json({ brands, products, variants, prices, bank_accounts });

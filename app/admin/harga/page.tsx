@@ -79,6 +79,23 @@ export default function DailyPricePage() {
     }
   };
 
+  // Harga hari ini sama dengan sebelumnya: tandai semua harga dikonfirmasi tanpa mengubah angka.
+  const confirmUnchanged = async () => {
+    if (!confirm(`Konfirmasi harga hari ini SAMA dengan sebelumnya untuk semua ${prices.length} produk?`)) return;
+    try {
+      setSaving(true);
+      const res = await api<{ confirmed: number }>("/api/admin/daily-prices", { method: "POST", body: { confirm: true } });
+      toast.success(`Harga tetap: ${res.confirmed} harga dikonfirmasi untuk hari ini`);
+      setLoading(true);
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) { router.push("/login"); return; }
+      toast.error(err instanceof Error ? err.message : "Gagal mengonfirmasi harga");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const inputCls = (dirty: boolean) =>
     `w-36 px-3 py-2 rounded-lg border text-right tabular-nums text-sm focus:outline-none focus:border-[#1c424f] ${dirty ? "border-[#ce9233] bg-[#ce9233]/10" : "border-[#908974]/40 bg-white"}`;
 
@@ -98,11 +115,12 @@ export default function DailyPricePage() {
         {!loading && (
           updatedThisCycle(lastUpdate) ? (
             <p className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800">
-              Harga siklus hari ini sudah diperbarui ({formatWib(new Date(lastUpdate!), false)}).
+              Harga siklus hari ini sudah diperbarui / dikonfirmasi ({formatWib(new Date(lastUpdate!), false)}).
             </p>
           ) : (
             <p className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-              Belum ada perubahan harga sejak pukul {PRICE_UPDATE_HOUR_WIB}.00 WIB terakhir — harga sebelumnya tetap berlaku.
+              Harga belum diperbarui sejak pukul {PRICE_UPDATE_HOUR_WIB}.00 WIB terakhir — harga sebelumnya tetap berlaku.
+              Ubah harga yang berubah lalu simpan, atau tekan <strong>Harga tetap hari ini</strong> bila tidak ada perubahan.
               {lastUpdate && <> Perubahan terakhir: {formatWib(new Date(lastUpdate), false)}.</>}
             </p>
           )
@@ -116,10 +134,18 @@ export default function DailyPricePage() {
                 Batalkan perubahan
               </button>
             )}
-            <button onClick={save} disabled={saving || changed.length === 0}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-[#1c424f] text-white hover:bg-[#15323c] disabled:opacity-40">
-              {saving ? "Menyimpan..." : `Simpan perubahan (${changed.length})`}
-            </button>
+            {changed.length === 0 ? (
+              <button onClick={confirmUnchanged} disabled={saving || loading || prices.length === 0}
+                title="Harga hari ini sama dengan sebelumnya"
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40">
+                {saving ? "Menyimpan..." : "Harga tetap hari ini"}
+              </button>
+            ) : (
+              <button onClick={save} disabled={saving}
+                className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-[#1c424f] text-white hover:bg-[#15323c] disabled:opacity-40">
+                {saving ? "Menyimpan..." : `Simpan perubahan (${changed.length})`}
+              </button>
+            )}
           </div>
         </div>
 
